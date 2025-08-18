@@ -222,7 +222,17 @@ export default function DashboardPage() {
                         {formErrors?.totalDebt && <p className="text-sm font-medium text-destructive">{formErrors.totalDebt[0]}</p>}
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="monthlyNetSalary">Monthly Net Salary</Label>
+                        <div className="flex items-center gap-1.5">
+                          <Label htmlFor="monthlyNetSalary">Monthly Net Salary</Label>
+                           <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Your take-home pay after taxes and other deductions.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                         <Input id="monthlyNetSalary" name="monthlyNetSalary" type="number" placeholder="e.g., 4000" value={monthlyNetSalary ?? ''} onChange={(e) => setMonthlyNetSalary(e.target.value === '' ? null : Number(e.target.value))} />
                         {formErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{formErrors.monthlyNetSalary[0]}</p>}
                       </div>
@@ -277,5 +287,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
