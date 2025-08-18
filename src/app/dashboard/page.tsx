@@ -83,22 +83,30 @@ function Dashboard() {
         description: "Your personalized financial plan is ready.",
       });
       setGoals(state.goals ?? []);
-      setIsFirstPlan(false);
       
-      if (state.newAchievement) {
-        setAchievements(prev => [...prev, state.newAchievement!]);
-      }
-      
+      // Don't reset the profile form, only the goals form
       setFormGoals([]);
 
-    } else if (state.message && state.message !== 'success') {
+      // Only set isFirstPlan to false after the first successful plan
+      if (isFirstPlan) {
+        setIsFirstPlan(false);
+      }
+      
+      if (state.newAchievement) {
+        // Avoid adding duplicate 'First Planner' achievement
+        if (!achievements.some(ach => ach.title === state.newAchievement!.title)) {
+           setAchievements(prev => [...prev, state.newAchievement!]);
+        }
+      }
+
+    } else if (state.message && state.message !== 'success' && state.message !== 'loading') {
       toast({
         variant: "destructive",
         title: "Uh oh! Something went wrong.",
         description: state.message,
       });
     }
-  }, [state, toast]);
+  }, [state, toast, isFirstPlan, achievements]);
   
   const handleAddGoal = () => {
     if (newGoal.name && newGoal.targetAmount > 0 && newGoal.targetDate) {
@@ -197,7 +205,9 @@ function Dashboard() {
                       value={netWorth ?? ''} 
                       onChange={(e) => setNetWorth(e.target.value ? parseFloat(e.target.value) : null)}
                     />
-                    {profileErrors?.netWorth && <p className="text-sm font-medium text-destructive">{profileErrors.netWorth[0]}</p>}
+                    <div className="h-5">
+                      {profileErrors?.netWorth && <p className="text-sm font-medium text-destructive">{profileErrors.netWorth[0]}</p>}
+                    </div>
                 </div>
 
                 <div className="space-y-2">
@@ -226,7 +236,9 @@ function Dashboard() {
                       />
                         <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     </div>
-                    {profileErrors?.savingsRate && <p className="text-sm font-medium text-destructive">{profileErrors.savingsRate[0]}</p>}
+                    <div className="h-5">
+                      {profileErrors?.savingsRate && <p className="text-sm font-medium text-destructive">{profileErrors.savingsRate[0]}</p>}
+                    </div>
                 </div>
                 
                 <div className="space-y-2">
@@ -239,7 +251,9 @@ function Dashboard() {
                       value={monthlyNetSalary ?? ''}
                       onChange={(e) => setMonthlyNetSalary(e.target.value ? parseFloat(e.target.value) : null)} 
                     />
-                    {profileErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{profileErrors.monthlyNetSalary[0]}</p>}
+                     <div className="h-5">
+                      {profileErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{profileErrors.monthlyNetSalary[0]}</p>}
+                    </div>
                 </div>
                 
                 <div className="space-y-2">
@@ -264,7 +278,9 @@ function Dashboard() {
                       value={totalDebt ?? ''}
                       onChange={(e) => setTotalDebt(e.target.value ? parseFloat(e.target.value) : null)}
                     />
-                    {profileErrors?.totalDebt && <p className="text-sm font-medium text-destructive">{profileErrors.totalDebt[0]}</p>}
+                    <div className="h-5">
+                      {profileErrors?.totalDebt && <p className="text-sm font-medium text-destructive">{profileErrors.totalDebt[0]}</p>}
+                    </div>
                 </div>
               </CardContent>
             </Card>
@@ -380,8 +396,8 @@ function Dashboard() {
               currency={currency} 
               data={{ netWorth, savingsRate, debtToIncome, totalDebt, monthlyNetSalary }} 
             />
-            <Achievements achievements={achievements} />
             <GoalProgressChart data={goals} currency={currency} onGoalSelect={handleGoalSelect} />
+            <Achievements achievements={achievements} />
             <Reminders goals={goals} />
           </div>
 
