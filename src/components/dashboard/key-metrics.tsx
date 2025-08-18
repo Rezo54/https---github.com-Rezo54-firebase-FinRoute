@@ -1,7 +1,23 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, Percent, PiggyBank } from "lucide-react";
 
-export function KeyMetrics() {
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Percent, PiggyBank } from "lucide-react";
+
+const currencySymbols: { [key: string]: string } = {
+  USD: "$",
+  EUR: "€",
+  JPY: "¥",
+  GBP: "£",
+  NGN: "₦",
+  ZAR: "R",
+  KES: "KSh",
+  CNY: "¥",
+  INR: "₹",
+  SGD: "S$",
+};
+
+export function KeyMetrics({ currency }: { currency: string }) {
+  const symbol = currencySymbols[currency] || '$';
+
   return (
     <Card>
       <CardHeader>
@@ -10,11 +26,11 @@ export function KeyMetrics() {
       <CardContent className="grid gap-6">
         <div className="flex items-center gap-4">
           <div className="rounded-lg bg-primary/10 p-3 text-primary">
-            <DollarSign className="h-6 w-6" />
+            <span className="h-6 w-6 font-bold text-lg">{symbol}</span>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Net Worth</p>
-            <p className="text-2xl font-bold">$250,430.00</p>
+            <p className="text-2xl font-bold">{symbol}250,430.00</p>
           </div>
         </div>
         <div className="flex items-center gap-4">

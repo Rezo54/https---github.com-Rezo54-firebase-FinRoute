@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useRef, ChangeEvent } from 'react';
+import { useState, useRef, ChangeEvent, Dispatch, SetStateAction } from 'react';
 import { FinRouteLogo } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,9 +14,12 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
+interface HeaderProps {
+  currency: string;
+  setCurrency: Dispatch<SetStateAction<string>>;
+}
 
-export function Header() {
-  const [currency, setCurrency] = useState('USD');
+export function Header({ currency, setCurrency }: HeaderProps) {
   const [avatarSrc, setAvatarSrc] = useState("https://placehold.co/100x100.png");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
