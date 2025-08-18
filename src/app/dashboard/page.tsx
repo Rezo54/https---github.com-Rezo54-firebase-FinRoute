@@ -2,6 +2,8 @@
 'use client';
 
 import { useState, useEffect, useActionState, useId } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { useFormStatus } from "react-dom";
 import { Achievements } from "@/components/dashboard/achievements";
 import { GoalProgressChart } from "@/components/dashboard/goal-progress-chart";
@@ -34,6 +36,7 @@ type PlanGoal = {
     targetAmount: number;
     currentAmount: number;
     targetDate: string;
+    icon: string;
 };
 
 type MetricsData = {
@@ -42,15 +45,20 @@ type MetricsData = {
     debtToIncome: number;
 };
 
+type Achievement = {
+  title: string;
+  icon: keyof typeof LucideIcons;
+};
+
 const initialFormState = {
   message: "",
   errors: null,
   plan: null,
   goals: null,
+  newAchievement: null,
 };
 
 const initialGoals: Goal[] = [];
-
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -86,6 +94,7 @@ export default function DashboardPage() {
   const [monthlyNetSalary, setMonthlyNetSalary] = useState<number | null>(null);
   
   const [formGoals, setFormGoals] = useState<Goal[]>(initialGoals);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
 
   const [debtToIncome, setDebtToIncome] = useState(0);
 
@@ -133,9 +142,18 @@ export default function DashboardPage() {
       });
       
       setGeneratedPlan(state.plan);
-      setAllGoals(prevGoals => [...prevGoals, ...state.goals!]);
+      setAllGoals(state.goals!);
+      
+      if (state.newAchievement) {
+        setAchievements(prev => {
+          if (!prev.find(a => a.title === state.newAchievement!.title)) {
+             toast({ title: "Achievement Unlocked!", description: `You've earned the "${state.newAchievement.title}" badge!` });
+             return [...prev, state.newAchievement as Achievement];
+          }
+          return prev;
+        });
+      }
 
-      // Reset form fields
       setFormGoals([{ id: `goal-${uniqueId}-reset-${Date.now()}`, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
 
     } else if (state.message && state.message !== 'Invalid form data.' && state.message !== 'success') {
@@ -155,15 +173,27 @@ export default function DashboardPage() {
   
   const handleUpdateGoal = (updatedAmount: number) => {
     if (selectedGoal) {
-      setAllGoals(prevGoals => 
-        prevGoals.map(g => 
-          g.name === selectedGoal.name ? { ...g, currentAmount: updatedAmount } : g
-        )
+      const updatedGoals = allGoals.map(g => 
+        g.name === selectedGoal.name ? { ...g, currentAmount: updatedAmount } : g
       );
-      toast({
-        title: "Goal Updated!",
-        description: `Your savings for "${selectedGoal.name}" have been updated.`,
-      });
+      setAllGoals(updatedGoals);
+      
+      const updatedGoal = updatedGoals.find(g => g.name === selectedGoal.name);
+      if (updatedGoal && updatedGoal.currentAmount >= updatedGoal.targetAmount) {
+        const newAchievement: Achievement = { title: updatedGoal.name, icon: updatedGoal.icon as keyof typeof LucideIcons };
+        setAchievements(prev => {
+           if (!prev.find(a => a.title === newAchievement.title)) {
+             toast({ title: "Goal Achieved!", description: `You've completed your "${newAchievement.title}" goal!` });
+             return [...prev, newAchievement];
+           }
+           return prev;
+        });
+      } else {
+        toast({
+          title: "Goal Updated!",
+          description: `Your savings for "${selectedGoal.name}" have been updated.`,
+        });
+      }
     }
     setSelectedGoal(null);
   };
@@ -188,6 +218,8 @@ export default function DashboardPage() {
   };
   
   const formErrors = state.errors?.fieldErrors;
+  const isFirstPlan = allGoals.length === 0 && !generatedPlan;
+
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -196,7 +228,7 @@ export default function DashboardPage() {
         <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
           <KeyMetrics currency={currency} data={metricsData} />
           <GoalProgressChart data={allGoals} currency={currency} onGoalSelect={handleGoalSelect} />
-          <Achievements />
+          <Achievements achievements={achievements} />
           <Reminders goals={allGoals} />
         </div>
         <div className="grid gap-4 md:gap-8 lg:grid-cols-1">
@@ -212,6 +244,7 @@ export default function DashboardPage() {
                  })} />
                ))}
                <input type="hidden" name="currency" value={currency} />
+               <input type="hidden" name="isFirstPlan" value={String(isFirstPlan)} />
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
                 <Card className="lg:col-span-1">
@@ -223,29 +256,33 @@ export default function DashboardPage() {
                      <CardDescription>This information helps the AI understand your overall financial health.</CardDescription>
                    </CardHeader>
                    <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                          <Label htmlFor="netWorth">Net Worth</Label>
-                          <Input id="netWorth" name="netWorth" type="number" placeholder="e.g., 50000" value={netWorth ?? ''} onChange={(e) => setNetWorth(e.target.value === '' ? null : Number(e.target.value))} />
-                           {formErrors?.netWorth && <p className="text-sm font-medium text-destructive">{formErrors.netWorth[0]}</p>}
-                      </div>
-                      <div className="space-y-2">
-                          <Label htmlFor="savingsRate">Savings Rate</Label>
-                          <div className="relative">
-                              <Input id="savingsRate" name="savingsRate" type="number" placeholder="e.g., 20" className="pr-8" value={savingsRate ?? ''} onChange={(e) => setSavingsRate(e.target.value === '' ? null : Number(e.target.value))} />
-                              <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          </div>
-                           {formErrors?.savingsRate && <p className="text-sm font-medium text-destructive">{formErrors.savingsRate[0]}</p>}
-                      </div>
-                      <div className="space-y-2">
-                          <Label htmlFor="totalDebt">Current Total Debt</Label>
-                          <Input id="totalDebt" name="totalDebt" type="number" placeholder="e.g., 15000" value={totalDebt ?? ''} onChange={(e) => setTotalDebt(e.target.value === '' ? null : Number(e.target.value))} />
-                          {formErrors?.totalDebt && <p className="text-sm font-medium text-destructive">{formErrors.totalDebt[0]}</p>}
-                      </div>
-                      <div className="space-y-2">
-                          <Label htmlFor="monthlyNetSalary">Monthly Net Salary</Label>
-                          <Input id="monthlyNetSalary" name="monthlyNetSalary" type="number" placeholder="e.g., 4000" value={monthlyNetSalary ?? ''} onChange={(e) => setMonthlyNetSalary(e.target.value === '' ? null : Number(e.target.value))} />
-                          {formErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{formErrors.monthlyNetSalary[0]}</p>}
-                      </div>
+                     <div className="space-y-2">
+                       <Label htmlFor="netWorth">
+                         Net Worth
+                       </Label>
+                       <Input id="netWorth" name="netWorth" type="number" placeholder="e.g., 50000" value={netWorth ?? ''} onChange={(e) => setNetWorth(e.target.value === '' ? null : Number(e.target.value))} />
+                       <p className="h-4 text-sm font-medium text-destructive">{formErrors?.netWorth?.[0] ?? ''}</p>
+                     </div>
+                     <div className="space-y-2">
+                       <Label htmlFor="savingsRate">
+                         Savings Rate
+                       </Label>
+                       <div className="relative">
+                         <Input id="savingsRate" name="savingsRate" type="number" placeholder="e.g., 20" className="pr-8" value={savingsRate ?? ''} onChange={(e) => setSavingsRate(e.target.value === '' ? null : Number(e.target.value))} />
+                         <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                       </div>
+                       <p className="h-4 text-sm font-medium text-destructive">{formErrors?.savingsRate?.[0] ?? ''}</p>
+                     </div>
+                     <div className="space-y-2">
+                         <Label htmlFor="totalDebt">Current Total Debt</Label>
+                         <Input id="totalDebt" name="totalDebt" type="number" placeholder="e.g., 15000" value={totalDebt ?? ''} onChange={(e) => setTotalDebt(e.target.value === '' ? null : Number(e.target.value))} />
+                         <p className="h-4 text-sm font-medium text-destructive">{formErrors?.totalDebt?.[0] ?? ''}</p>
+                     </div>
+                     <div className="space-y-2">
+                       <Label htmlFor="monthlyNetSalary">Monthly Net Salary</Label>
+                       <Input id="monthlyNetSalary" name="monthlyNetSalary" type="number" placeholder="e.g., 4000" value={monthlyNetSalary ?? ''} onChange={(e) => setMonthlyNetSalary(e.target.value === '' ? null : Number(e.target.value))} />
+                       <p className="h-4 text-sm font-medium text-destructive">{formErrors?.monthlyNetSalary?.[0] ?? ''}</p>
+                     </div>
                    </CardContent>
                 </Card>
 
@@ -261,7 +298,7 @@ export default function DashboardPage() {
                   </CardHeader>
                   <CardContent>
                      {formErrors?.goals && <p className="text-sm font-medium text-destructive mb-4">{typeof formErrors.goals === 'string' ? formErrors.goals : formErrors.goals[0]}</p>}
-                     {formGoals.map((goal) => (
+                     {formGoals.map((goal, index) => (
                        <div key={goal.id} className="p-4 border rounded-lg bg-muted/50 relative space-y-4 mb-4">
                          {formGoals.length > 1 && (
                             <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-muted-foreground hover:text-destructive" onClick={() => removeGoal(goal.id)}>

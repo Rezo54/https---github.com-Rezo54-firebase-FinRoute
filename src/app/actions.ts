@@ -27,6 +27,7 @@ const formSchema = z.object({
   monthlyNetSalary: z.coerce.number().min(1, "Monthly salary must be a positive number."),
   goals: z.array(goalSchema).min(1, "Please add at least one financial goal."),
   currency: z.string(),
+  isFirstPlan: z.coerce.boolean(),
 });
 
 type State = {
@@ -39,7 +40,12 @@ type State = {
     targetAmount: number;
     currentAmount: number;
     targetDate: string;
+    icon: string;
   }[] | null;
+  newAchievement?: {
+    title: string;
+    icon: string;
+  } | null;
 }
 
 const loginSchema = z.object({
@@ -107,6 +113,7 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
       monthlyNetSalary: formData.get('monthlyNetSalary'),
       goals: goalsData.length > 0 ? goalsData : [],
       currency: formData.get('currency'),
+      isFirstPlan: formData.get('isFirstPlan'),
     };
 
     const validatedFields = formSchema.safeParse(rawData);
@@ -120,7 +127,7 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
       };
     }
 
-    const { netWorth, savingsRate, totalDebt, monthlyNetSalary, goals, currency } = validatedFields.data;
+    const { netWorth, savingsRate, totalDebt, monthlyNetSalary, goals, currency, isFirstPlan } = validatedFields.data;
     
     // Calculate Debt-to-Income Ratio
     const debtToIncome = monthlyNetSalary > 0 ? Math.round((totalDebt / monthlyNetSalary) * 100) : 0;
@@ -158,6 +165,7 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
       errors: null,
       plan: result.plan,
       goals: result.goals,
+      newAchievement: isFirstPlan ? { title: 'First Planner', icon: 'Award' } : null,
     };
   } catch (error) {
     console.error(error);

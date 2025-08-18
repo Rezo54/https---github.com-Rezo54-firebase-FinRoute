@@ -21,6 +21,7 @@ interface Goal {
     targetAmount: number;
     currentAmount: number;
     targetDate: string;
+    icon: string;
 }
 
 interface UpdateGoalDialogProps {
@@ -41,22 +42,32 @@ export function UpdateGoalDialog({
   currency,
 }: UpdateGoalDialogProps) {
   const [amount, setAmount] = useState<number | string>('');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (goal) {
       setAmount(goal.currentAmount);
+      setError(null);
     }
   }, [goal]);
 
   const handleSubmit = () => {
     const newAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    if (!isNaN(newAmount) && newAmount !== null && goal && newAmount <= goal.targetAmount) {
-      onUpdate(newAmount);
-      onOpenChange(false);
-    } else {
-      // Basic validation feedback
-      alert("Please enter a valid amount that is not greater than the target amount.");
+    if (isNaN(newAmount) || newAmount === null) {
+      setError("Please enter a valid amount.");
+      return;
     }
+    if (goal && newAmount > goal.targetAmount) {
+      setError("Current savings cannot exceed the target amount.");
+      return;
+    }
+     if (newAmount < 0) {
+      setError("Savings cannot be negative.");
+      return;
+    }
+
+    onUpdate(newAmount);
+    onOpenChange(false);
   };
 
   if (!goal) return null;
@@ -84,6 +95,7 @@ export function UpdateGoalDialog({
               className="col-span-3"
             />
           </div>
+           {error && <p className="col-span-4 text-right text-sm font-medium text-destructive">{error}</p>}
         </div>
         <DialogFooter className="sm:justify-between">
           <Button variant="destructive" onClick={onDelete}>

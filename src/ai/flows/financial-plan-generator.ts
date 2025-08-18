@@ -20,6 +20,10 @@ const GoalSchema = z.object({
   targetDate: z.string().describe('The target date to achieve the goal (e.g., YYYY-MM-DD).'),
 });
 
+const GoalWithIconSchema = GoalSchema.extend({
+    icon: z.string().describe("The most relevant lucide-react icon name for the goal (e.g., 'Car', 'Home', 'GraduationCap', 'Plane', 'Gift').")
+});
+
 const FinancialPlanInputSchema = z.object({
   age: z.number().describe("The user's current age."),
   currency: z.string().describe('The currency symbol or code (e.g., $, €, R).'),
@@ -35,7 +39,7 @@ export type FinancialPlanInput = z.infer<typeof FinancialPlanInputSchema>;
 
 const FinancialPlanOutputSchema = z.object({
   plan: z.string().describe('A personalized financial plan with recommendations, formatted as markdown.'),
-  goals: z.array(GoalSchema).describe('The user\'s goals, returned as they were provided.'),
+  goals: z.array(GoalWithIconSchema).describe('The user\'s goals, returned with a relevant lucide-react icon name for each.'),
 });
 export type FinancialPlanOutput = z.infer<typeof FinancialPlanOutputSchema>;
 
@@ -48,6 +52,8 @@ const prompt = ai.definePrompt({
   input: {schema: FinancialPlanInputSchema},
   output: {schema: FinancialPlanOutputSchema},
   prompt: `You are an expert financial advisor. Your task is to generate a personalized, actionable financial plan based on the user's data. The plan should be in Markdown format. Use the provided currency symbol for all monetary values.
+
+  For each goal provided by the user, you MUST select the most appropriate icon name from the lucide-react library and include it in the 'icon' field for that goal in the output.
 
   **User Profile:**
   - **Age:** {{{age}}}
@@ -97,9 +103,8 @@ const financialPlanGeneratorFlow = ai.defineFlow(
     // The AI returns the plan and the goals. We just need to forward them.
     return {
       plan: output.plan,
-      goals: input.goals, // Pass the original goals through for UI consistency
+      goals: output.goals, 
     };
   }
 );
-
     
