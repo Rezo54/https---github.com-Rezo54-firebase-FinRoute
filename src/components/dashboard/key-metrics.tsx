@@ -1,6 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Percent, PiggyBank } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const currencySymbols: { [key: string]: string } = {
   USD: "$", EUR: "€", JPY: "¥", GBP: "£", NGN: "₦", ZAR: "R", KES: "KSh", CNY: "¥", INR: "₹", SGD: "S$",
@@ -12,7 +13,7 @@ interface KeyMetricsProps {
     netWorth: number;
     savingsRate: number;
     debtToIncome: number;
-  };
+  } | null;
 }
 
 export function KeyMetrics({ currency, data }: KeyMetricsProps) {
@@ -26,6 +27,39 @@ export function KeyMetrics({ currency, data }: KeyMetricsProps) {
       maximumFractionDigits: 2,
     }).format(value);
   };
+
+  if (!data) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-headline">Key Metrics</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-6">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-12 w-12 rounded-lg" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-[100px]" />
+              <Skeleton className="h-6 w-[150px]" />
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-12 w-12 rounded-lg" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-[100px]" />
+              <Skeleton className="h-6 w-[150px]" />
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-12 w-12 rounded-lg" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-[100px]" />
+              <Skeleton className="h-6 w-[150px]" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

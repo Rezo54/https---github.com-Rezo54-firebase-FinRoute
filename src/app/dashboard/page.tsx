@@ -10,25 +10,10 @@ import { KeyMetrics } from "@/components/dashboard/key-metrics";
 import { Reminders } from "@/components/dashboard/reminders";
 import { Header } from "@/components/layout/header";
 
-// Dummy data for initial state
-const initialMetrics = {
-  netWorth: 250430,
-  savingsRate: 25,
-  debtToIncome: 15,
-};
-
-const initialGoals = [
-  { name: "House", currentAmount: 15000, targetAmount: 50000 },
-  { name: "Retire", currentAmount: 75000, targetAmount: 500000 },
-  { name: "Car", currentAmount: 8000, targetAmount: 25000 },
-  { name: "Vacation", currentAmount: 2500, targetAmount: 5000 },
-];
-
-
 export default function DashboardPage() {
   const [currency, setCurrency] = useState('USD');
-  const [keyMetrics, setKeyMetrics] = useState(initialMetrics);
-  const [goals, setGoals] = useState(initialGoals);
+  const [keyMetrics, setKeyMetrics] = useState<FinancialPlanOutput['keyMetrics'] | null>(null);
+  const [goals, setGoals] = useState<FinancialPlanOutput['goals']>([]);
   const [plan, setPlan] = useState<string | null>(null);
 
   const handlePlanGenerated = (data: FinancialPlanOutput) => {
