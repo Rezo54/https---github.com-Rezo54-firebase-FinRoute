@@ -227,28 +227,36 @@ export default function DashboardPage() {
                      <CardDescription>This information helps the AI understand your overall financial health.</CardDescription>
                    </CardHeader>
                    <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                          <Label htmlFor="netWorth">Net Worth</Label>
-                          <Input id="netWorth" name="netWorth" type="number" placeholder="e.g., 50000" value={netWorth ?? ''} onChange={(e) => setNetWorth(e.target.value === '' ? null : Number(e.target.value))} />
-                          {formErrors?.netWorth && <p className="text-sm font-medium text-destructive">{formErrors.netWorth[0]}</p>}
-                      </div>
-                      <div className="space-y-2">
-                          <Label htmlFor="savingsRate">Savings Rate</Label>
-                          <div className="relative">
-                              <Input id="savingsRate" name="savingsRate" type="number" placeholder="e.g., 20" className="pr-8" value={savingsRate ?? ''} onChange={(e) => setSavingsRate(e.target.value === '' ? null : Number(e.target.value))} />
-                              <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <div className="grid grid-cols-3 items-center gap-4">
+                          <Label htmlFor="netWorth" className="col-span-1 text-right">Net Worth</Label>
+                          <div className="col-span-2">
+                            <Input id="netWorth" name="netWorth" type="number" placeholder="e.g., 50000" value={netWorth ?? ''} onChange={(e) => setNetWorth(e.target.value === '' ? null : Number(e.target.value))} />
+                            {formErrors?.netWorth && <p className="text-sm font-medium text-destructive mt-1">{formErrors.netWorth[0]}</p>}
                           </div>
-                          {formErrors?.savingsRate && <p className="text-sm font-medium text-destructive">{formErrors.savingsRate[0]}</p>}
                       </div>
-                      <div className="space-y-2">
-                          <Label htmlFor="totalDebt">Current Total Debt</Label>
-                          <Input id="totalDebt" name="totalDebt" type="number" placeholder="e.g., 15000" value={totalDebt ?? ''} onChange={(e) => setTotalDebt(e.target.value === '' ? null : Number(e.target.value))} />
-                          {formErrors?.totalDebt && <p className="text-sm font-medium text-destructive">{formErrors.totalDebt[0]}</p>}
+                      <div className="grid grid-cols-3 items-center gap-4">
+                          <Label htmlFor="savingsRate" className="col-span-1 text-right">Savings Rate</Label>
+                          <div className="col-span-2">
+                            <div className="relative">
+                                <Input id="savingsRate" name="savingsRate" type="number" placeholder="e.g., 20" className="pr-8" value={savingsRate ?? ''} onChange={(e) => setSavingsRate(e.target.value === '' ? null : Number(e.target.value))} />
+                                <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            </div>
+                            {formErrors?.savingsRate && <p className="text-sm font-medium text-destructive mt-1">{formErrors.savingsRate[0]}</p>}
+                          </div>
                       </div>
-                      <div className="space-y-2">
-                          <Label htmlFor="monthlyNetSalary">Monthly Net Salary</Label>
-                          <Input id="monthlyNetSalary" name="monthlyNetSalary" type="number" placeholder="e.g., 4000" value={monthlyNetSalary ?? ''} onChange={(e) => setMonthlyNetSalary(e.target.value === '' ? null : Number(e.target.value))} />
-                          {formErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{formErrors.monthlyNetSalary[0]}</p>}
+                      <div className="grid grid-cols-3 items-center gap-4">
+                          <Label htmlFor="totalDebt" className="col-span-1 text-right">Total Debt</Label>
+                           <div className="col-span-2">
+                            <Input id="totalDebt" name="totalDebt" type="number" placeholder="e.g., 15000" value={totalDebt ?? ''} onChange={(e) => setTotalDebt(e.target.value === '' ? null : Number(e.target.value))} />
+                            {formErrors?.totalDebt && <p className="text-sm font-medium text-destructive mt-1">{formErrors.totalDebt[0]}</p>}
+                          </div>
+                      </div>
+                      <div className="grid grid-cols-3 items-center gap-4">
+                          <Label htmlFor="monthlyNetSalary" className="col-span-1 text-right">Monthly Salary</Label>
+                           <div className="col-span-2">
+                            <Input id="monthlyNetSalary" name="monthlyNetSalary" type="number" placeholder="e.g., 4000" value={monthlyNetSalary ?? ''} onChange={(e) => setMonthlyNetSalary(e.target.value === '' ? null : Number(e.target.value))} />
+                            {formErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive mt-1">{formErrors.monthlyNetSalary[0]}</p>}
+                          </div>
                       </div>
                    </CardContent>
                 </Card>
@@ -333,3 +341,4 @@ export default function DashboardPage() {
   );
 
     
+
