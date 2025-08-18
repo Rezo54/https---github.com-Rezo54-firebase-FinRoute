@@ -34,7 +34,7 @@ export function AuthForm() {
   const isSignUp = mode === 'signup';
 
   const action = isSignUp ? signup : login;
-  const [state, formAction] = useFormState(action, initialState);
+  const [state, formAction] = useFormState(action, initialState as any);
 
   return (
     <Card className="w-full max-w-sm">
@@ -60,6 +60,15 @@ export function AuthForm() {
               <p className="text-sm font-medium text-destructive">{state.errors.username[0]}</p>
             )}
           </div>
+          {isSignUp && (
+            <div className="space-y-2">
+              <Label htmlFor="age">Age</Label>
+              <Input id="age" name="age" type="number" placeholder="e.g. 30" required />
+              {state?.errors?.age && (
+                <p className="text-sm font-medium text-destructive">{state.errors.age[0]}</p>
+              )}
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input id="password" name="password" type="password" required />

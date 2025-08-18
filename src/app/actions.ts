@@ -34,6 +34,7 @@ const loginSchema = z.object({
 const signupSchema = z.object({
   username: z.string().min(3, { message: "Username must be at least 3 characters long." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters long." }),
+  age: z.coerce.number().min(18, { message: "You must be at least 18 years old." }).max(100, { message: "Please enter a valid age."}),
 });
 
 type AuthState = {
@@ -41,6 +42,7 @@ type AuthState = {
   errors?: {
     username?: string[];
     password?: string[];
+    age?: string[];
   } | null;
 }
 
@@ -102,7 +104,11 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
     // Calculate Debt-to-Income Ratio
     const debtToIncome = monthlyNetSalary > 0 ? Math.round((totalDebt / monthlyNetSalary) * 100) : 0;
     
+    // TODO: Get age from user session
+    const age = 35;
+
     const input: FinancialPlanInput = {
+      age: age,
       goals: goals,
       keyMetrics: {
         netWorth: netWorth,
@@ -117,7 +123,7 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
       return {
         message: 'The AI could not generate a plan based on the data provided. Please try again with more details.',
         errors: null,
-        plan: null
+        plan: null,
       }
     }
 
@@ -125,7 +131,6 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
       message: 'success',
       errors: null,
       plan: result.plan,
-      goals: result.goals,
     };
   } catch (error) {
     console.error(error);

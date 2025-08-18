@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -11,13 +12,8 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-const GoalSchema = z.object({
-  name: z.string().describe("The name of the financial goal."),
-  targetAmount: z.number().describe("The target amount for the goal."),
-  currentAmount: z.number().describe("The current amount saved for the goal."),
-});
-
 const FinancialPlanInputSchema = z.object({
+  age: z.number().describe("The user's current age."),
   goals: z
     .string()
     .describe(
@@ -49,6 +45,7 @@ const prompt = ai.definePrompt({
 
   Based on the user's financial goals and key metrics, generate a personalized financial plan with recommendations for budgeting, saving, and investing.
 
+  User's Current Age: {{{age}}}
   User's Goals: {{{goals}}}
 
   Key Metrics:
@@ -56,7 +53,7 @@ const prompt = ai.definePrompt({
   - Savings Rate: {{{keyMetrics.savingsRate}}}%
   - Debt-to-Income Ratio: {{{keyMetrics.debtToIncome}}}%
 
-  Provide a comprehensive, actionable financial plan based on this information.
+  Provide a comprehensive, actionable financial plan based on this information. Be mindful of the user's age when providing recommendations, especially for long-term goals like retirement.
   `,
 });
 
