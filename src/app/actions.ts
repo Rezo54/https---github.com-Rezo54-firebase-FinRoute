@@ -8,7 +8,7 @@ import { redirect } from 'next/navigation';
 const goalSchema = z.object({
   id: z.string(),
   name: z.string().min(1, "Goal name is required."),
-  description: z.string().optional().transform(val => val === '' ? undefined : val),
+  description: z.string().optional(),
   targetAmount: z.coerce.number().min(1, "Target amount must be greater than 0."),
   currentAmount: z.coerce.number().min(0, "Current amount must be a positive number."),
   targetDate: z.string().min(1, "Target date is required."),
@@ -106,7 +106,15 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
 
 export async function generatePlan(prevState: State, formData: FormData): Promise<State> {
   try {
-    const goalsData = formData.getAll('goals').map(goal => JSON.parse(goal as string));
+    const goalsData = formData.getAll('goals').map(goal => {
+        const parsed = JSON.parse(goal as string);
+        // Zod's optional() expects undefined, but the form sends an empty string.
+        // We transform it here before validation.
+        if (parsed.description === '') {
+            parsed.description = undefined;
+        }
+        return parsed;
+    });
 
     const rawData = {
       netWorth: formData.get('netWorth'),
@@ -144,7 +152,7 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
     const input: FinancialPlanInput = {
       age: age,
       currency: currencySymbols[currency] || currency,
-      goals: goals.map(g => ({...g, description: g.description || undefined })),
+      goals: goals,
       keyMetrics: {
         netWorth: netWorth,
         savingsRate: savingsRate,
@@ -178,5 +186,3 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
     };
   }
 }
-
-    
