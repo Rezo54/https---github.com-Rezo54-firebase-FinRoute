@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Bot, Loader2, Sparkles, Percent, Info, PlusCircle, Trash2 } from "lucide-react";
+import { Bot, Loader2, Sparkles, Percent, Info, PlusCircle, Trash2, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -55,7 +55,7 @@ const initialGoals: Goal[] = [];
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" size="lg" className="w-full font-bold" disabled={pending}>
+    <Button type="submit" size="lg" className="w-full font-bold mt-4" disabled={pending}>
       {pending ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -203,36 +203,31 @@ export default function DashboardPage() {
           <Achievements />
           <Reminders goals={allGoals} />
         </div>
-        <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3">
-          <Card className="col-span-1 lg:col-span-3">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Bot className="h-8 w-8 text-primary" />
-                <CardTitle className="font-headline text-2xl">Create Your Financial Plan</CardTitle>
-              </div>
-              <CardDescription>
-                Provide your goals and financial data, and our AI will generate a personalized plan for you.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <TooltipProvider>
-                 <form action={formAction} className="space-y-6">
-                   {formGoals.map(goal => (
-                     <input key={goal.id} type="hidden" name="goals" value={JSON.stringify({
-                       name: goal.name,
-                       description: goal.description,
-                       targetAmount: goal.targetAmount,
-                       currentAmount: goal.currentAmount,
-                       targetDate: goal.targetDate,
-                     })} />
-                   ))}
-                   <input type="hidden" name="currency" value={currency} />
+        <div className="grid gap-4 md:gap-8 lg:grid-cols-1">
+          <TooltipProvider>
+            <form action={formAction} className="space-y-6">
+               {formGoals.map(goal => (
+                 <input key={goal.id} type="hidden" name="goals" value={JSON.stringify({
+                   name: goal.name,
+                   description: goal.description,
+                   targetAmount: goal.targetAmount,
+                   currentAmount: goal.currentAmount,
+                   targetDate: goal.targetDate,
+                 })} />
+               ))}
+               <input type="hidden" name="currency" value={currency} />
 
-
-                  <div className="space-y-4">
-                    <Label className="text-base font-semibold">Your Key Metrics</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div className="space-y-2">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                <Card className="lg:col-span-1">
+                   <CardHeader>
+                     <div className="flex items-center gap-2">
+                      <User className="h-6 w-6 text-primary" />
+                      <CardTitle className="font-headline text-xl">Your Profile</CardTitle>
+                     </div>
+                     <CardDescription>This information helps the AI understand your overall financial health.</CardDescription>
+                   </CardHeader>
+                   <CardContent className="space-y-4">
+                     <div className="space-y-2">
                         <div className="flex items-center gap-1.5">
                           <Label htmlFor="netWorth">Net Worth</Label>
                           <Tooltip>
@@ -295,14 +290,23 @@ export default function DashboardPage() {
                         <Input id="monthlyNetSalary" name="monthlyNetSalary" type="number" placeholder="e.g., 4000" value={monthlyNetSalary ?? ''} onChange={(e) => setMonthlyNetSalary(e.target.value === '' ? null : Number(e.target.value))} />
                         {formErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{formErrors.monthlyNetSalary[0]}</p>}
                       </div>
-                    </div>
-                  </div>
+                   </CardContent>
+                </Card>
 
-                  <div className="space-y-4">
-                     <Label className="text-base font-semibold">Your Financial Goals</Label>
-                     {formErrors?.goals && <p className="text-sm font-medium text-destructive">{typeof formErrors.goals === 'string' ? formErrors.goals : formErrors.goals[0]}</p>}
+                <Card className="lg:col-span-2">
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <Bot className="h-6 w-6 text-primary" />
+                      <CardTitle className="font-headline text-xl">Create Your Financial Plan</CardTitle>
+                    </div>
+                    <CardDescription>
+                      Add your financial goals and the AI will generate a personalized plan for you.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                     {formErrors?.goals && <p className="text-sm font-medium text-destructive mb-4">{typeof formErrors.goals === 'string' ? formErrors.goals : formErrors.goals[0]}</p>}
                      {formGoals.map((goal) => (
-                       <div key={goal.id} className="p-4 border rounded-lg bg-muted/50 relative space-y-4">
+                       <div key={goal.id} className="p-4 border rounded-lg bg-muted/50 relative space-y-4 mb-4">
                          {formGoals.length > 1 && (
                             <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-muted-foreground hover:text-destructive" onClick={() => removeGoal(goal.id)}>
                               <Trash2 className="h-4 w-4" />
@@ -336,19 +340,25 @@ export default function DashboardPage() {
                        <PlusCircle className="mr-2 h-4 w-4" />
                        Add Another Goal
                      </Button>
-                  </div>
-                  
-                  <SubmitButton />
-                </form>
-              </TooltipProvider>
-              {generatedPlan && (
-                <div className="mt-8 rounded-lg border bg-muted/20 p-6">
-                  <h3 className="font-headline text-xl font-semibold mb-4 text-foreground">Your Personalized Plan</h3>
-                  <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap">{generatedPlan}</div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              <SubmitButton />
+            </form>
+          </TooltipProvider>
+
+          {generatedPlan && (
+            <Card className="mt-8">
+              <CardHeader>
+                <h3 className="font-headline text-xl font-semibold text-foreground">Your Personalized Plan</h3>
+              </CardHeader>
+              <CardContent>
+                <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap">{generatedPlan}</div>
+              </CardContent>
+            </Card>
+          )}
+
         </div>
       </main>
       <UpdateGoalDialog
@@ -361,4 +371,5 @@ export default function DashboardPage() {
       />
     </div>
   );
+
     
