@@ -7,16 +7,20 @@ import { redirect } from 'next/navigation';
 
 const formSchema = z.object({
   goals: z.string().min(10, "Please describe your financial goals in more detail."),
-  financialData: z.string().min(50, "Please provide more comprehensive financial data for an accurate plan."),
+  netWorth: z.coerce.number().min(0, "Net worth must be a positive number."),
+  savingsRate: z.coerce.number().min(0, "Savings rate must be a positive number.").max(100, "Savings rate cannot exceed 100."),
+  debtToIncome: z.coerce.number().min(0, "Debt-to-income ratio must be a positive number.").max(100, "Debt-to-income ratio cannot exceed 100."),
 });
 
 type State = {
   message: string;
   errors?: {
     goals?: string[];
-    financialData?: string[];
+    netWorth?: string[];
+    savingsRate?: string[];
+    debtToIncome?: string[];
   } | null;
-  plan?: FinancialPlanOutput | null;
+  plan?: string | null;
 }
 
 const loginSchema = z.object({
@@ -76,7 +80,9 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
   try {
     const validatedFields = formSchema.safeParse({
       goals: formData.get('goals'),
-      financialData: formData.get('financialData'),
+      netWorth: formData.get('netWorth'),
+      savingsRate: formData.get('savingsRate'),
+      debtToIncome: formData.get('debtToIncome'),
     });
 
     if (!validatedFields.success) {
@@ -89,7 +95,11 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
     
     const input: FinancialPlanInput = {
       goals: validatedFields.data.goals,
-      financialData: validatedFields.data.financialData,
+      keyMetrics: {
+        netWorth: validatedFields.data.netWorth,
+        savingsRate: validatedFields.data.savingsRate,
+        debtToIncome: validatedFields.data.debtToIncome,
+      }
     };
 
     const result = await financialPlanGenerator(input);
@@ -105,7 +115,7 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
     return {
       message: 'success',
       errors: null,
-      plan: result,
+      plan: result.plan,
     };
   } catch (error) {
     console.error(error);

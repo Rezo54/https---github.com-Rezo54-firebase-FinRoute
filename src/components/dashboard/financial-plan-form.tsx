@@ -8,9 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Bot, Loader2, Sparkles } from "lucide-react";
+import { Bot, Loader2, Sparkles, Percent } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import type { FinancialPlanOutput } from "@/ai/flows/financial-plan-generator";
 
 const initialState = {
   message: "",
@@ -38,7 +37,7 @@ function SubmitButton() {
 }
 
 interface FinancialPlanFormProps {
-  onPlanGenerated: (data: FinancialPlanOutput) => void;
+  onPlanGenerated: (data: any) => void;
   plan: string | null;
 }
 
@@ -52,7 +51,20 @@ export function FinancialPlanForm({ onPlanGenerated, plan }: FinancialPlanFormPr
         title: "Plan Generated!",
         description: "Your personalized financial plan is ready below.",
       });
-      onPlanGenerated(state.plan);
+      // We need to get the inputs from the form again to update the parent state
+      const form = document.querySelector('form');
+      if (form) {
+        const formData = new FormData(form);
+        const netWorth = parseFloat(formData.get('netWorth') as string || '0');
+        const savingsRate = parseFloat(formData.get('savingsRate') as string || '0');
+        const debtToIncome = parseFloat(formData.get('debtToIncome') as string || '0');
+        onPlanGenerated({
+          keyMetrics: { netWorth, savingsRate, debtToIncome },
+          goals: [], // Goals are not handled in this form version
+          plan: state.plan,
+        });
+      }
+
     } else if (state.message && state.message !== 'Invalid form data.') {
       toast({
         variant: "destructive",
@@ -75,21 +87,40 @@ export function FinancialPlanForm({ onPlanGenerated, plan }: FinancialPlanFormPr
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+             <div className="space-y-2">
+              <Label htmlFor="netWorth" className="text-base">Net Worth</Label>
+              <Input id="netWorth" name="netWorth" type="number" placeholder="e.g., 50000" />
+              {state.errors?.netWorth && <p className="text-sm font-medium text-destructive">{state.errors.netWorth[0]}</p>}
+            </div>
+             <div className="space-y-2">
+              <Label htmlFor="savingsRate" className="text-base">Savings Rate</Label>
+               <div className="relative">
+                <Input id="savingsRate" name="savingsRate" type="number" placeholder="e.g., 20" className="pr-8" />
+                <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              </div>
+              {state.errors?.savingsRate && <p className="text-sm font-medium text-destructive">{state.errors.savingsRate[0]}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="debtToIncome" className="text-base">Debt-to-Income Ratio</Label>
+               <div className="relative">
+                <Input id="debtToIncome" name="debtToIncome" type="number" placeholder="e.g., 35" className="pr-8" />
+                <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              </div>
+              {state.errors?.debtToIncome && <p className="text-sm font-medium text-destructive">{state.errors.debtToIncome[0]}</p>}
+            </div>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="goals" className="text-base">Your Financial Goals</Label>
-            <Input id="goals" name="goals" placeholder="e.g., Retire by 60, buy a house in 5 years, save for child's education..." />
+            <Textarea 
+              id="goals" 
+              name="goals" 
+              placeholder="e.g., Retire by 60, buy a house in 5 years, save for child's education..." 
+              className="min-h-[100px]"
+            />
             {state.errors?.goals && <p className="text-sm font-medium text-destructive">{state.errors.goals[0]}</p>}
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="financialData" className="text-base">Your Financial Data</Label>
-            <Textarea
-              id="financialData"
-              name="financialData"
-              placeholder="For the best results, paste your financial data here. This can include bank statements, investment portfolio details, income, and major expenses. The more detail, the better the plan."
-              className="min-h-[150px]"
-            />
-             {state.errors?.financialData && <p className="text-sm font-medium text-destructive">{state.errors.financialData[0]}</p>}
-          </div>
+
           <SubmitButton />
         </form>
 

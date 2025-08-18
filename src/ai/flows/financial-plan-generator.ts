@@ -11,34 +11,29 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-const FinancialPlanInputSchema = z.object({
-  financialData: z
-    .string()
-    .describe(
-      'A comprehensive set of financial data, including bank statements, investment statements, and tax returns.  This should be a single string containing all the data.'
-    ),
-  goals: z
-    .string()
-    .describe(
-      'A description of the users financial goals, such as retirement, buying a house, etc.'
-    ),
-});
-export type FinancialPlanInput = z.infer<typeof FinancialPlanInputSchema>;
-
 const GoalSchema = z.object({
   name: z.string().describe("The name of the financial goal."),
   targetAmount: z.number().describe("The target amount for the goal."),
   currentAmount: z.number().describe("The current amount saved for the goal."),
 });
 
-const FinancialPlanOutputSchema = z.object({
-  plan: z.string().describe('A personalized financial plan with recommendations.'),
+const FinancialPlanInputSchema = z.object({
+  goals: z
+    .string()
+    .describe(
+      'A description of the users financial goals, such as retirement, buying a house, etc.'
+    ),
   keyMetrics: z.object({
     netWorth: z.number().describe("The user's calculated net worth."),
     savingsRate: z.number().describe("The user's savings rate as a percentage."),
     debtToIncome: z.number().describe("The user's debt-to-income ratio as a percentage."),
   }),
-  goals: z.array(GoalSchema).describe("A list of the user's financial goals with their progress."),
+});
+export type FinancialPlanInput = z.infer<typeof FinancialPlanInputSchema>;
+
+
+const FinancialPlanOutputSchema = z.object({
+  plan: z.string().describe('A personalized financial plan with recommendations.'),
 });
 export type FinancialPlanOutput = z.infer<typeof FinancialPlanOutputSchema>;
 
@@ -52,17 +47,16 @@ const prompt = ai.definePrompt({
   output: {schema: FinancialPlanOutputSchema},
   prompt: `You are an expert financial advisor.
 
-  Based on the user's financial data and goals, generate a personalized financial plan with recommendations for budgeting, saving, and investing.
+  Based on the user's financial goals and key metrics, generate a personalized financial plan with recommendations for budgeting, saving, and investing.
 
-  Analyze the provided financial data to calculate the user's net worth, savings rate (as a percentage), and debt-to-income ratio (as a percentage).
+  User's Goals: {{{goals}}}
 
-  Also, identify the user's financial goals from their description. For each goal, determine the target amount and the current amount saved.
+  Key Metrics:
+  - Net Worth: {{{keyMetrics.netWorth}}}
+  - Savings Rate: {{{keyMetrics.savingsRate}}}%
+  - Debt-to-Income Ratio: {{{keyMetrics.debtToIncome}}}%
 
-  Return the calculated metrics and the list of goals in the structured output, in addition to the written financial plan.
-
-  Financial Data: {{{financialData}}}
-
-  Goals: {{{goals}}}
+  Provide a comprehensive, actionable financial plan based on this information.
   `,
 });
 
