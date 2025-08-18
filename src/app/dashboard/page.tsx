@@ -136,10 +136,6 @@ export default function DashboardPage() {
       setAllGoals(prevGoals => [...prevGoals, ...state.goals!]);
 
       // Reset form fields
-      setNetWorth(null);
-      setSavingsRate(null);
-      setTotalDebt(null);
-      setMonthlyNetSalary(null);
       setFormGoals([{ id: `goal-${uniqueId}-reset-${Date.now()}`, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
 
     } else if (state.message && state.message !== 'Invalid form data.' && state.message !== 'success') {
@@ -193,12 +189,6 @@ export default function DashboardPage() {
   
   const formErrors = state.errors?.fieldErrors;
 
-  const FormError = ({ error }: { error?: string[] }) => (
-    <div className="h-5">
-      {error && <p className="text-sm font-medium text-destructive">{error[0]}</p>}
-    </div>
-  );
-
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <Header currency={currency} setCurrency={setCurrency} />
@@ -223,7 +213,7 @@ export default function DashboardPage() {
                ))}
                <input type="hidden" name="currency" value={currency} />
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
                 <Card className="lg:col-span-1">
                    <CardHeader>
                      <div className="flex items-center gap-2">
@@ -236,7 +226,7 @@ export default function DashboardPage() {
                       <div className="space-y-2">
                           <Label htmlFor="netWorth">Net Worth</Label>
                           <Input id="netWorth" name="netWorth" type="number" placeholder="e.g., 50000" value={netWorth ?? ''} onChange={(e) => setNetWorth(e.target.value === '' ? null : Number(e.target.value))} />
-                          <FormError error={formErrors?.netWorth} />
+                           {formErrors?.netWorth && <p className="text-sm font-medium text-destructive">{formErrors.netWorth[0]}</p>}
                       </div>
                       <div className="space-y-2">
                           <Label htmlFor="savingsRate">Savings Rate</Label>
@@ -244,17 +234,17 @@ export default function DashboardPage() {
                               <Input id="savingsRate" name="savingsRate" type="number" placeholder="e.g., 20" className="pr-8" value={savingsRate ?? ''} onChange={(e) => setSavingsRate(e.target.value === '' ? null : Number(e.target.value))} />
                               <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                           </div>
-                          <FormError error={formErrors?.savingsRate} />
+                           {formErrors?.savingsRate && <p className="text-sm font-medium text-destructive">{formErrors.savingsRate[0]}</p>}
                       </div>
                       <div className="space-y-2">
                           <Label htmlFor="totalDebt">Current Total Debt</Label>
                           <Input id="totalDebt" name="totalDebt" type="number" placeholder="e.g., 15000" value={totalDebt ?? ''} onChange={(e) => setTotalDebt(e.target.value === '' ? null : Number(e.target.value))} />
-                          <FormError error={formErrors?.totalDebt} />
+                          {formErrors?.totalDebt && <p className="text-sm font-medium text-destructive">{formErrors.totalDebt[0]}</p>}
                       </div>
                       <div className="space-y-2">
                           <Label htmlFor="monthlyNetSalary">Monthly Net Salary</Label>
                           <Input id="monthlyNetSalary" name="monthlyNetSalary" type="number" placeholder="e.g., 4000" value={monthlyNetSalary ?? ''} onChange={(e) => setMonthlyNetSalary(e.target.value === '' ? null : Number(e.target.value))} />
-                          <FormError error={formErrors?.monthlyNetSalary} />
+                          {formErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{formErrors.monthlyNetSalary[0]}</p>}
                       </div>
                    </CardContent>
                 </Card>
@@ -337,11 +327,4 @@ export default function DashboardPage() {
       />
     </div>
   );
-
-    
-
-    
-
-    
-
-    
+}
