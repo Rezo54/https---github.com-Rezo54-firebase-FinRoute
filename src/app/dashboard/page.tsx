@@ -73,15 +73,20 @@ export default function DashboardPage() {
   const [totalDebt, setTotalDebt] = useState<number | null>(null);
   const [monthlyNetSalary, setMonthlyNetSalary] = useState<number | null>(null);
   
-  const [goals, setGoals] = useState<Goal[]>([
-    { id: Date.now(), name: '', targetAmount: null, currentAmount: null, targetDate: '' }
-  ]);
+  const [goals, setGoals] = useState<Goal[]>([]);
 
   const [debtToIncome, setDebtToIncome] = useState(0);
 
   const [state, formAction] = useActionState(generatePlan, initialState);
   const { toast } = useToast();
 
+  useEffect(() => {
+    // Initialize with one goal on the client side to avoid hydration errors
+    if (goals.length === 0) {
+      setGoals([{ id: Date.now(), name: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  
   const handleGoalChange = (id: number, field: keyof Omit<Goal, 'id'>, value: string | number) => {
     setGoals(goals.map(goal => goal.id === id ? { ...goal, [field]: value } : goal));
   };
