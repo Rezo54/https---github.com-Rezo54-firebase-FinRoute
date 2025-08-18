@@ -193,6 +193,12 @@ export default function DashboardPage() {
   
   const formErrors = state.errors?.fieldErrors;
 
+  const FormError = ({ error }: { error?: string[] }) => (
+    <div className="h-5">
+      {error && <p className="text-sm font-medium text-destructive">{error[0]}</p>}
+    </div>
+  );
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <Header currency={currency} setCurrency={setCurrency} />
@@ -239,7 +245,7 @@ export default function DashboardPage() {
                             </Tooltip>
                           </Label>
                           <Input id="netWorth" name="netWorth" type="number" placeholder="e.g., 50000" value={netWorth ?? ''} onChange={(e) => setNetWorth(e.target.value === '' ? null : Number(e.target.value))} />
-                          {formErrors?.netWorth && <p className="text-sm font-medium text-destructive mt-1">{formErrors.netWorth[0]}</p>}
+                          <FormError error={formErrors?.netWorth} />
                       </div>
                       <div className="space-y-2">
                           <Label htmlFor="savingsRate" className="flex items-center gap-1">Savings Rate
@@ -256,7 +262,7 @@ export default function DashboardPage() {
                               <Input id="savingsRate" name="savingsRate" type="number" placeholder="e.g., 20" className="pr-8" value={savingsRate ?? ''} onChange={(e) => setSavingsRate(e.target.value === '' ? null : Number(e.target.value))} />
                               <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                           </div>
-                          {formErrors?.savingsRate && <p className="text-sm font-medium text-destructive mt-1">{formErrors.savingsRate[0]}</p>}
+                          <FormError error={formErrors?.savingsRate} />
                       </div>
                       <div className="space-y-2">
                           <Label htmlFor="totalDebt" className="flex items-center gap-1">Current Total Debt
@@ -270,12 +276,12 @@ export default function DashboardPage() {
                             </Tooltip>
                           </Label>
                           <Input id="totalDebt" name="totalDebt" type="number" placeholder="e.g., 15000" value={totalDebt ?? ''} onChange={(e) => setTotalDebt(e.target.value === '' ? null : Number(e.target.value))} />
-                          {formErrors?.totalDebt && <p className="text-sm font-medium text-destructive mt-1">{formErrors.totalDebt[0]}</p>}
+                          <FormError error={formErrors?.totalDebt} />
                       </div>
                       <div className="space-y-2">
                           <Label htmlFor="monthlyNetSalary">Monthly Net Salary</Label>
                           <Input id="monthlyNetSalary" name="monthlyNetSalary" type="number" placeholder="e.g., 4000" value={monthlyNetSalary ?? ''} onChange={(e) => setMonthlyNetSalary(e.target.value === '' ? null : Number(e.target.value))} />
-                          {formErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive mt-1">{formErrors.monthlyNetSalary[0]}</p>}
+                          <FormError error={formErrors?.monthlyNetSalary} />
                       </div>
                    </CardContent>
                 </Card>
@@ -358,6 +364,8 @@ export default function DashboardPage() {
       />
     </div>
   );
+
+    
 
     
 
