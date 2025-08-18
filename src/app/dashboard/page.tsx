@@ -65,6 +65,7 @@ function Dashboard() {
   const [netWorth, setNetWorth] = useState<number | null>(null);
   const [savingsRate, setSavingsRate] = useState<number | null>(null);
   const [debtToIncome, setDebtToIncome] = useState<number>(0);
+  const [totalDebt, setTotalDebt] = useState<number | null>(null);
   const [monthlyNetSalary, setMonthlyNetSalary] = useState<number | null>(null);
   
   const [formGoals, setFormGoals] = useState<Goal[]>([]);
@@ -170,175 +171,178 @@ function Dashboard() {
           <div className="lg:col-span-2 space-y-8">
             <Card>
               <CardHeader>
-                <CardTitle className="font-headline text-3xl">Your Financial Hub</CardTitle>
-                <CardDescription>Start by telling us about your finances. We'll generate a personalized plan for you.</CardDescription>
+                  <CardTitle className="font-headline text-3xl">Your Financial Hub</CardTitle>
+                  <CardDescription>Start by telling us about your finances. We'll generate a personalized plan for you.</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
-                    {/* Your Profile Section */}
-                    <div className="space-y-4">
-                        <h3 className="font-headline text-xl">Your Profile</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="netWorth" className="flex items-center gap-1">
-                                    Net Worth
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Your total assets minus your total liabilities.</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                </Label>
-                                <Input 
-                                  id="netWorth" 
-                                  name="netWorth" 
-                                  type="number" 
-                                  placeholder="e.g. 50000" 
-                                  value={netWorth ?? ''} 
-                                  onChange={(e) => setNetWorth(e.target.value ? parseFloat(e.target.value) : null)}
-                                />
-                                {profileErrors?.netWorth && <p className="text-sm font-medium text-destructive">{profileErrors.netWorth[0]}</p>}
-                            </div>
+              <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                      <Label htmlFor="netWorth" className="flex items-center gap-1">
+                          Net Worth
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Your total assets minus your total liabilities.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                      </Label>
+                      <Input 
+                        id="netWorth" 
+                        name="netWorth" 
+                        type="number" 
+                        placeholder="e.g. 50000" 
+                        value={netWorth ?? ''} 
+                        onChange={(e) => setNetWorth(e.target.value ? parseFloat(e.target.value) : null)}
+                      />
+                      {profileErrors?.netWorth && <p className="text-sm font-medium text-destructive">{profileErrors.netWorth[0]}</p>}
+                  </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="savingsRate" className="flex items-center gap-1">
-                                  Savings Rate (%)
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>The percentage of your net income that you save.</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                </Label>
-                                <div className="relative">
-                                  <Input 
-                                    id="savingsRate" 
-                                    name="savingsRate" 
-                                    type="number" 
-                                    placeholder="e.g. 15"
-                                    className="pr-8"
-                                    value={savingsRate ?? ''}
-                                    onChange={(e) => setSavingsRate(e.target.value ? parseFloat(e.target.value) : null)}
-                                  />
-                                   <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                </div>
-                                {profileErrors?.savingsRate && <p className="text-sm font-medium text-destructive">{profileErrors.savingsRate[0]}</p>}
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="monthlyNetSalary">Monthly Net Salary</Label>
-                                <Input 
-                                  id="monthlyNetSalary" 
-                                  name="monthlyNetSalary" 
-                                  type="number" 
-                                  placeholder="e.g. 3000"
-                                  value={monthlyNetSalary ?? ''}
-                                  onChange={(e) => setMonthlyNetSalary(e.target.value ? parseFloat(e.target.value) : null)} 
-                                />
-                                {profileErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{profileErrors.monthlyNetSalary[0]}</p>}
-                            </div>
-                            
-                            <div className="space-y-2">
-                                <Label htmlFor="totalDebt" className="flex items-center gap-1">
-                                  Current Total Debt
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>The total amount of debt you currently have.</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                </Label>
-                                <Input id="totalDebt" name="totalDebt" type="number" placeholder="e.g. 10000" />
-                                {profileErrors?.totalDebt && <p className="text-sm font-medium text-destructive">{profileErrors.totalDebt[0]}</p>}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Financial Goals Section */}
-                    <div className="space-y-4">
-                        <h3 className="font-headline text-xl">Financial Goals</h3>
-                        <div className="space-y-4">
-                            {formGoals.map((goal, index) => (
-                                <Card key={goal.id} className="p-4 bg-muted/30">
-                                    <input type="hidden" name="goals" value={JSON.stringify(goal)} />
-                                    <div className="flex justify-between items-start">
-                                      <div className="space-y-1">
-                                        <p className="font-semibold">{goal.name}</p>
-                                        <p className="text-sm text-muted-foreground">Target: {new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(goal.targetAmount)} by {goal.targetDate}</p>
-                                      </div>
-                                      <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveGoal(goal.id)}>
-                                        <X className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                </Card>
-                            ))}
-                        </div>
-                         {goalsError && <p className="text-sm font-medium text-destructive">{goalsError}</p>}
-                        
-                        <Card className="p-4 border-dashed">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="goalName">Goal Name</Label>
-                                <Input id="goalName" placeholder="e.g., Buy a Car" value={newGoal.name} onChange={(e) => setNewGoal({...newGoal, name: e.target.value})} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="targetAmount">Target Amount</Label>
-                                <Input id="targetAmount" type="number" placeholder="e.g., 20000" value={newGoal.targetAmount || ''} onChange={(e) => setNewGoal({...newGoal, targetAmount: parseFloat(e.target.value)})} />
-                            </div>
-                             <div className="space-y-2">
-                                <Label htmlFor="currentAmount">Current Amount Saved</Label>
-                                <Input id="currentAmount" type="number" placeholder="e.g., 5000" value={newGoal.currentAmount || ''} onChange={(e) => setNewGoal({...newGoal, currentAmount: parseFloat(e.target.value)})} />
-                            </div>
-                            <div className="space-y-2">
-                               <Label htmlFor="targetDate">Target Date</Label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                    <Button
-                                        variant={"outline"}
-                                        className={cn(
-                                        "w-full justify-start text-left font-normal",
-                                        !newGoal.targetDate && "text-muted-foreground"
-                                        )}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {newGoal.targetDate ? format(newGoal.targetDate, "PPP") : <span>Pick a date</span>}
-                                    </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                        mode="single"
-                                        selected={newGoal.targetDate ? new Date(newGoal.targetDate) : undefined}
-                                        onSelect={(date) => setNewGoal({...newGoal, targetDate: date ? format(date, 'yyyy-MM-dd') : ''})}
-                                        initialFocus
-                                    />
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
-                          </div>
-                          <Button type="button" variant="secondary" onClick={handleAddGoal} className="mt-4 w-full">Add Goal</Button>
-                        </Card>
-                    </div>
-
-                    <Button type="submit" size="lg" className="w-full" disabled={state.message === 'loading'}>
-                        {state.message === 'loading' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Generate Financial Plan'}
-                    </Button>
-                    <input type="hidden" name="currency" value={currency} />
-                    <input type="hidden" name="isFirstPlan" value={String(isFirstPlan)} />
-                </div>
+                  <div className="space-y-2">
+                      <Label htmlFor="savingsRate" className="flex items-center gap-1">
+                        Savings Rate (%)
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>The percentage of your net income that you save.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </Label>
+                      <div className="relative">
+                        <Input 
+                          id="savingsRate" 
+                          name="savingsRate" 
+                          type="number" 
+                          placeholder="e.g. 15"
+                          className="pr-8"
+                          value={savingsRate ?? ''}
+                          onChange={(e) => setSavingsRate(e.target.value ? parseFloat(e.target.value) : null)}
+                        />
+                          <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      </div>
+                      {profileErrors?.savingsRate && <p className="text-sm font-medium text-destructive">{profileErrors.savingsRate[0]}</p>}
+                  </div>
+                  
+                  <div className="space-y-2">
+                      <Label htmlFor="monthlyNetSalary">Monthly Net Salary</Label>
+                      <Input 
+                        id="monthlyNetSalary" 
+                        name="monthlyNetSalary" 
+                        type="number" 
+                        placeholder="e.g. 3000"
+                        value={monthlyNetSalary ?? ''}
+                        onChange={(e) => setMonthlyNetSalary(e.target.value ? parseFloat(e.target.value) : null)} 
+                      />
+                      {profileErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{profileErrors.monthlyNetSalary[0]}</p>}
+                  </div>
+                  
+                  <div className="space-y-2">
+                      <Label htmlFor="totalDebt" className="flex items-center gap-1">
+                        Current Total Debt
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>The total amount of debt you currently have.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </Label>
+                      <Input 
+                        id="totalDebt" 
+                        name="totalDebt" 
+                        type="number" 
+                        placeholder="e.g. 10000"
+                        value={totalDebt ?? ''}
+                        onChange={(e) => setTotalDebt(e.target.value ? parseFloat(e.target.value) : null)}
+                      />
+                      {profileErrors?.totalDebt && <p className="text-sm font-medium text-destructive">{profileErrors.totalDebt[0]}</p>}
+                  </div>
               </CardContent>
             </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-headline text-xl">Financial Goals</CardTitle>
+                <CardDescription>Add your financial goals to get started.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                    {formGoals.map((goal) => (
+                        <Card key={goal.id} className="p-4 bg-muted/30">
+                            <input type="hidden" name="goals" value={JSON.stringify(goal)} />
+                            <div className="flex justify-between items-start">
+                              <div className="space-y-1">
+                                <p className="font-semibold">{goal.name}</p>
+                                <p className="text-sm text-muted-foreground">Target: {new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(goal.targetAmount)} by {goal.targetDate}</p>
+                              </div>
+                              <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveGoal(goal.id)}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                        </Card>
+                    ))}
+                </div>
+                {goalsError && <p className="text-sm font-medium text-destructive mt-2">{goalsError}</p>}
+                
+                <Card className="p-4 border-dashed mt-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="goalName">Goal Name</Label>
+                        <Input id="goalName" placeholder="e.g., Buy a Car" value={newGoal.name} onChange={(e) => setNewGoal({...newGoal, name: e.target.value})} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="targetAmount">Target Amount</Label>
+                        <Input id="targetAmount" type="number" placeholder="e.g., 20000" value={newGoal.targetAmount || ''} onChange={(e) => setNewGoal({...newGoal, targetAmount: parseFloat(e.target.value)})} />
+                    </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="currentAmount">Current Amount Saved</Label>
+                        <Input id="currentAmount" type="number" placeholder="e.g., 5000" value={newGoal.currentAmount || ''} onChange={(e) => setNewGoal({...newGoal, currentAmount: parseFloat(e.target.value)})} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="targetDate">Target Date</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !newGoal.targetDate && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {newGoal.targetDate ? format(newGoal.targetDate, "PPP") : <span>Pick a date</span>}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={newGoal.targetDate ? new Date(newGoal.targetDate) : undefined}
+                                onSelect={(date) => setNewGoal({...newGoal, targetDate: date ? format(date, 'yyyy-MM-dd') : ''})}
+                                initialFocus
+                            />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                  </div>
+                  <Button type="button" variant="secondary" onClick={handleAddGoal} className="mt-4 w-full">Add Goal</Button>
+                </Card>
+              </CardContent>
+            </Card>
+
+            <Button type="submit" size="lg" className="w-full" disabled={state.message === 'loading'}>
+                {state.message === 'loading' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Generate Financial Plan'}
+            </Button>
+            <input type="hidden" name="currency" value={currency} />
+            <input type="hidden" name="isFirstPlan" value={String(isFirstPlan)} />
 
             {state.plan ? (
               <Card>
@@ -370,7 +374,7 @@ function Dashboard() {
           <div className="space-y-8">
             <KeyMetrics 
               currency={currency} 
-              data={{ netWorth, savingsRate, debtToIncome }} 
+              data={{ netWorth, savingsRate, debtToIncome, totalDebt, monthlyNetSalary }} 
             />
             <Achievements achievements={achievements} />
             <GoalProgressChart data={goals} currency={currency} onGoalSelect={handleGoalSelect} />
@@ -390,3 +394,5 @@ function Dashboard() {
     </div>
   );
 }
+
+    
