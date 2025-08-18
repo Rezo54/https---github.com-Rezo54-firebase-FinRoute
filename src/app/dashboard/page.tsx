@@ -20,7 +20,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { UpdateGoalDialog } from '@/components/dashboard/update-goal-dialog';
 
 type Goal = {
-  id: number;
+  id: string;
   name: string;
   description: string;
   targetAmount: number | null;
@@ -49,9 +49,7 @@ const initialFormState = {
   goals: null,
 };
 
-let nextId = 1;
-
-const initialGoals: Goal[] = [{ id: nextId++, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }];
+const initialGoals: Goal[] = [{ id: '', name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }];
 
 
 function SubmitButton() {
@@ -87,7 +85,7 @@ export default function DashboardPage() {
   const [totalDebt, setTotalDebt] = useState<number | null>(null);
   const [monthlyNetSalary, setMonthlyNetSalary] = useState<number | null>(null);
   
-  const [formGoals, setFormGoals] = useState<Goal[]>([]);
+  const [formGoals, setFormGoals] = useState<Goal[]>(initialGoals);
 
   const [debtToIncome, setDebtToIncome] = useState(0);
 
@@ -95,21 +93,20 @@ export default function DashboardPage() {
   const { toast } = useToast();
   
   useEffect(() => {
-    if (formGoals.length === 0) {
-      setFormGoals([{ id: nextId++, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // Generate a unique ID for the initial goal on the client side to avoid hydration errors
+    setFormGoals([{ id: `goal-${Date.now()}`, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
+  }, []);
 
 
-  const handleGoalChange = (id: number, field: keyof Omit<Goal, 'id'>, value: string | number | null) => {
+  const handleGoalChange = (id: string, field: keyof Omit<Goal, 'id'>, value: string | number | null) => {
     setFormGoals(formGoals.map(goal => goal.id === id ? { ...goal, [field]: value } : goal));
   };
 
   const addGoal = () => {
-    setFormGoals([...formGoals, { id: nextId++, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
+    setFormGoals([...formGoals, { id: `goal-${Date.now()}`, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
   };
 
-  const removeGoal = (id: number) => {
+  const removeGoal = (id: string) => {
     if (formGoals.length > 1) {
       setFormGoals(formGoals.filter(goal => goal.id !== id));
     }
@@ -138,7 +135,7 @@ export default function DashboardPage() {
       setSavingsRate(null);
       setTotalDebt(null);
       setMonthlyNetSalary(null);
-      setFormGoals([{ id: nextId++, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
+      setFormGoals([{ id: `goal-${Date.now()}`, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
 
     } else if (state.message && state.message !== 'Invalid form data.' && state.message !== 'success') {
       toast({
@@ -358,4 +355,5 @@ export default function DashboardPage() {
       />
     </div>
   );
-}
+
+    
