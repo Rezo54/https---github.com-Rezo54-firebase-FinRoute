@@ -86,7 +86,7 @@ export default function DashboardPage() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   
-  const handleGoalChange = (id: number, field: keyof Omit<Goal, 'id'>, value: string | number) => {
+  const handleGoalChange = (id: number, field: keyof Omit<Goal, 'id'>, value: string | number | null) => {
     setGoals(goals.map(goal => goal.id === id ? { ...goal, [field]: value } : goal));
   };
 
@@ -142,7 +142,7 @@ export default function DashboardPage() {
           <KeyMetrics currency={currency} data={metricsData} />
           <GoalProgressChart data={planData?.goals ?? goals} currency={currency} />
           <Achievements />
-          <Reminders />
+          <Reminders goals={goals.filter(g => g.name)} />
         </div>
         <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3">
           <Card className="col-span-1 lg:col-span-3">
