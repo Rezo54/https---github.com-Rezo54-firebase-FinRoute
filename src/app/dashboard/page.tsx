@@ -49,7 +49,7 @@ const initialFormState = {
   goals: null,
 };
 
-const initialGoals: Goal[] = [{ id: '', name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }];
+const initialGoals: Goal[] = [];
 
 
 function SubmitButton() {
@@ -94,8 +94,10 @@ export default function DashboardPage() {
   
   useEffect(() => {
     // Generate a unique ID for the initial goal on the client side to avoid hydration errors
-    setFormGoals([{ id: `goal-${Date.now()}`, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
-  }, []);
+    if (formGoals.length === 0) {
+        setFormGoals([{ id: `goal-${Date.now()}`, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
+    }
+  }, [formGoals.length]);
 
 
   const handleGoalChange = (id: string, field: keyof Omit<Goal, 'id'>, value: string | number | null) => {
