@@ -106,7 +106,11 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
 
 export async function generatePlan(prevState: State, formData: FormData): Promise<State> {
   try {
-    const goalsData = formData.getAll('goals').map(goal => JSON.parse(goal as string));
+    const goalsData = formData.getAll('goals').map(goal => {
+      const parsed = JSON.parse(goal as string);
+      return { ...parsed, description: parsed.description || undefined };
+    });
+
     const rawData = {
       netWorth: formData.get('netWorth'),
       savingsRate: formData.get('savingsRate'),
