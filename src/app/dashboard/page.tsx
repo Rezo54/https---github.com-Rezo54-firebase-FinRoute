@@ -247,7 +247,7 @@ export default function DashboardPage() {
                      {formErrors?.goals && <p className="text-sm font-medium text-destructive">{formErrors.goals.toString()}</p>}
                      {goals.map((goal, index) => (
                        <div key={goal.id} className="p-4 border rounded-lg bg-muted/50 relative space-y-4">
-                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                            <div className="space-y-2 md:col-span-2">
                              <Label htmlFor={`goal-name-${goal.id}`}>Goal Name</Label>
                              <Input id={`goal-name-${goal.id}`} value={goal.name} onChange={e => handleGoalChange(goal.id, 'name', e.target.value)} placeholder="e.g., Mauritius Holiday" />
@@ -260,7 +260,7 @@ export default function DashboardPage() {
                              <Label htmlFor={`goal-current-${goal.id}`}>Current Savings</Label>
                              <Input id={`goal-current-${goal.id}`} type="number" value={goal.currentAmount ?? ''} onChange={e => handleGoalChange(goal.id, 'currentAmount', e.target.value === '' ? null : Number(e.target.value))} placeholder="e.g., 1500" />
                            </div>
-                           <div className="space-y-2 md:col-start-4">
+                           <div className="space-y-2">
                              <Label htmlFor={`goal-date-${goal.id}`}>Target Date</Label>
                              <Input id={`goal-date-${goal.id}`} type="date" value={goal.targetDate} onChange={e => handleGoalChange(goal.id, 'targetDate', e.target.value)} />
                            </div>
