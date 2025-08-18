@@ -8,7 +8,7 @@ import { redirect } from 'next/navigation';
 const goalSchema = z.object({
   id: z.string(),
   name: z.string().min(1, "Goal name is required."),
-  description: z.string().optional(),
+  description: z.string().optional().transform(val => val === '' ? undefined : val),
   targetAmount: z.coerce.number().min(1, "Target amount must be greater than 0."),
   currentAmount: z.coerce.number().min(0, "Current amount must be a positive number."),
   targetDate: z.string().min(1, "Target date is required."),
@@ -144,7 +144,7 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
     const input: FinancialPlanInput = {
       age: age,
       currency: currencySymbols[currency] || currency,
-      goals: goals,
+      goals: goals.map(g => ({...g, description: g.description || undefined })),
       keyMetrics: {
         netWorth: netWorth,
         savingsRate: savingsRate,
