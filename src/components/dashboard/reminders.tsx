@@ -12,7 +12,7 @@ interface RemindersProps {
 
 export function Reminders({ goals }: RemindersProps) {
 
-  const reminders = goals.map(goal => ({
+  const reminders = goals.filter(goal => goal.name).map(goal => ({
     icon: PiggyBank,
     text: `Update savings for "${goal.name}"`,
     due: "Due this month",
@@ -42,13 +42,11 @@ export function Reminders({ goals }: RemindersProps) {
             ))}
           </ul>
         ) : (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-muted-foreground">No notifications yet.</p>
+          <div className="flex items-center justify-center h-full min-h-[100px]">
+            <p className="text-muted-foreground text-center">No notifications yet. Once a plan is generated, reminders for your goals will appear here.</p>
           </div>
         )}
       </CardContent>
     </Card>
   );
 }
-
-    

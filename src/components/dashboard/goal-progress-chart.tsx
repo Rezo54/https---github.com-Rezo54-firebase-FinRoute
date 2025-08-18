@@ -22,8 +22,8 @@ const chartConfig = {
 
 interface Goal {
   name: string;
-  currentAmount: number;
-  targetAmount: number;
+  currentAmount: number | null;
+  targetAmount: number | null;
 }
 
 interface GoalProgressChartProps {
@@ -67,8 +67,8 @@ export function GoalProgressChart({ data, currency }: GoalProgressChartProps) {
                 content={<ChartTooltipContent
                   formatter={(value, name, item) => {
                     const payload = item.payload as Goal;
-                    const saved = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(payload.currentAmount)
-                    const target = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(payload.targetAmount)
+                    const saved = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(payload.currentAmount ?? 0)
+                    const target = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(payload.targetAmount ?? 0)
                     return `${saved} / ${target}`
                   }}
                 />}
@@ -78,13 +78,11 @@ export function GoalProgressChart({ data, currency }: GoalProgressChartProps) {
             </BarChart>
           </ChartContainer>
         ) : (
-          <div className="flex min-h-[250px] w-full items-center justify-center">
-            <p className="text-muted-foreground">No goals defined yet. Generate a plan to see your progress.</p>
+          <div className="flex min-h-[250px] w-full items-center justify-center rounded-lg border border-dashed">
+            <p className="text-center text-muted-foreground">Your goal progress will appear here once you generate a plan.</p>
           </div>
         )}
       </CardContent>
     </Card>
   )
 }
-
-    

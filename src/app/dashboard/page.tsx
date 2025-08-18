@@ -38,12 +38,15 @@ type MetricsData = {
     debtToIncome: number;
 };
 
-const initialState = {
+const initialFormState = {
   message: "",
   errors: null,
   plan: null,
   goals: null,
 };
+
+const initialGoals: Goal[] = [{ id: 1, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }];
+
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -78,26 +81,30 @@ export default function DashboardPage() {
 
   const [debtToIncome, setDebtToIncome] = useState(0);
 
-  const [state, formAction] = useActionState(generatePlan, initialState);
+  const [state, formAction] = useActionState(generatePlan, initialFormState);
   const { toast } = useToast();
-
+  
+  // Effect to add the initial goal form on the client-side to prevent hydration errors
   useEffect(() => {
-    // Initialize with one goal on the client side to avoid hydration errors
     if (goals.length === 0) {
-      setGoals([{ id: Date.now(), name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
+      setGoals(initialGoals);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  
+
   const handleGoalChange = (id: number, field: keyof Omit<Goal, 'id'>, value: string | number | null) => {
     setGoals(goals.map(goal => goal.id === id ? { ...goal, [field]: value } : goal));
   };
 
   const addGoal = () => {
+    // Use a timestamp for a unique ID, ensuring it's unique on the client
     setGoals([...goals, { id: Date.now(), name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
   };
 
   const removeGoal = (id: number) => {
-    setGoals(goals.filter(goal => goal.id !== id));
+    // Prevent removing the last goal
+    if (goals.length > 1) {
+      setGoals(goals.filter(goal => goal.id !== id));
+    }
   };
 
   useEffect(() => {
@@ -118,6 +125,14 @@ export default function DashboardPage() {
         goals: state.goals ?? [],
         plan: state.plan,
       });
+
+      // Reset form fields
+      setNetWorth(null);
+      setSavingsRate(null);
+      setTotalDebt(null);
+      setMonthlyNetSalary(null);
+      setGoals(initialGoals);
+
 
     } else if (state.message && state.message !== 'Invalid form data.' && state.message !== 'success') {
       toast({
@@ -141,10 +156,10 @@ export default function DashboardPage() {
       <Header currency={currency} setCurrency={setCurrency} />
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
         <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
-          <KeyMetrics currency={currency} data={metricsData} />
-          <GoalProgressChart data={planData?.goals ?? goals} currency={currency} />
+          <KeyMetrics currency={currency} data={planData ? { netWorth: planData.goals.reduce((acc, g) => acc + (g.currentAmount || 0), 0), savingsRate: null, debtToIncome: 0 } : metricsData} />
+          <GoalProgressChart data={planData?.goals ?? []} currency={currency} />
           <Achievements />
-          <Reminders goals={goals.filter(g => g.name)} />
+          <Reminders goals={planData?.goals ?? []} />
         </div>
         <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3">
           <Card className="col-span-1 lg:col-span-3">
@@ -163,6 +178,7 @@ export default function DashboardPage() {
                    {/* Hidden inputs for goals */}
                    {goals.map(goal => (
                      <input key={goal.id} type="hidden" name="goals" value={JSON.stringify({
+                       // Filter out the client-side ID before sending to the server
                        name: goal.name,
                        description: goal.description,
                        targetAmount: goal.targetAmount,
@@ -247,7 +263,7 @@ export default function DashboardPage() {
                      {formErrors?.goals && <p className="text-sm font-medium text-destructive">{formErrors.goals.toString()}</p>}
                      {goals.map((goal, index) => (
                        <div key={goal.id} className="p-4 border rounded-lg bg-muted/50 relative space-y-4">
-                         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                            <div className="space-y-2 md:col-span-2">
                              <Label htmlFor={`goal-name-${goal.id}`}>Goal Name</Label>
                              <Input id={`goal-name-${goal.id}`} value={goal.name} onChange={e => handleGoalChange(goal.id, 'name', e.target.value)} placeholder="e.g., Mauritius Holiday" />
@@ -269,9 +285,11 @@ export default function DashboardPage() {
                             <Label htmlFor={`goal-description-${goal.id}`}>Description (Optional)</Label>
                             <Textarea id={`goal-description-${goal.id}`} value={goal.description} onChange={e => handleGoalChange(goal.id, 'description', e.target.value)} placeholder="e.g., A 2-week trip with the family, including flights, accommodation, and activities." />
                          </div>
-                         <Button type="button" variant="ghost" size="icon" className="absolute -top-2 -right-2 text-muted-foreground hover:text-destructive" onClick={() => removeGoal(goal.id)}>
-                           <Trash2 className="h-4 w-4" />
-                         </Button>
+                         {goals.length > 1 && (
+                            <Button type="button" variant="ghost" size="icon" className="absolute -top-2 -right-2 text-muted-foreground hover:text-destructive" onClick={() => removeGoal(goal.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                         )}
                        </div>
                      ))}
                      <Button type="button" variant="outline" onClick={addGoal} className="w-full md:w-auto">
@@ -296,5 +314,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
