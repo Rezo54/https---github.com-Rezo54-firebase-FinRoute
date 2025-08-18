@@ -100,7 +100,7 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
       savingsRate: formData.get('savingsRate'),
       totalDebt: formData.get('totalDebt'),
       monthlyNetSalary: formData.get('monthlyNetSalary'),
-      goals: goalsData,
+      goals: goalsData.length > 0 ? goalsData : [],
       currency: formData.get('currency'),
     };
 
@@ -163,3 +163,5 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
     };
   }
 }
+
+    

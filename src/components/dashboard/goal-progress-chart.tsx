@@ -14,6 +14,10 @@ const chartConfig = {
     label: "Saved",
     color: "hsl(var(--chart-1))",
   },
+  targetAmount: {
+    label: "Target",
+    color: "hsl(var(--muted))",
+  }
 } satisfies ChartConfig
 
 interface Goal {
@@ -30,6 +34,8 @@ interface GoalProgressChartProps {
 export function GoalProgressChart({ data, currency }: GoalProgressChartProps) {
   const symbol = currencySymbols[currency] || '$';
 
+  const chartData = data.filter(g => g.name && g.targetAmount);
+
   return (
     <Card className="lg:col-span-2">
       <CardHeader>
@@ -37,11 +43,11 @@ export function GoalProgressChart({ data, currency }: GoalProgressChartProps) {
         <CardDescription>Your progress towards your financial goals.</CardDescription>
       </CardHeader>
       <CardContent>
-        {data.length > 0 ? (
+        {chartData.length > 0 ? (
           <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
             <BarChart
               accessibilityLayer
-              data={data}
+              data={chartData}
               layout="vertical"
               margin={{ left: 10, right: 10 }}
             >
@@ -53,17 +59,21 @@ export function GoalProgressChart({ data, currency }: GoalProgressChartProps) {
                 tickMargin={10}
                 axisLine={false}
                 className="text-muted-foreground"
+                width={80}
               />
-              <XAxis dataKey="currentAmount" type="number" hide />
+              <XAxis dataKey="targetAmount" type="number" hide />
               <ChartTooltip
                 cursor={false}
                 content={<ChartTooltipContent
                   formatter={(value, name, item) => {
                     const payload = item.payload as Goal;
-                    return `${new Intl.NumberFormat('en-US', { style: 'currency', currency: currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value as number)} / ${new Intl.NumberFormat('en-US', { style: 'currency', currency: currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(payload.targetAmount)}`
+                    const saved = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(payload.currentAmount)
+                    const target = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(payload.targetAmount)
+                    return `${saved} / ${target}`
                   }}
                 />}
               />
+              <Bar dataKey="targetAmount" layout="vertical" fill="var(--color-targetAmount)" radius={4} background={{ fill: 'hsl(var(--muted) / 0.2)', radius: 4 }}/>
               <Bar dataKey="currentAmount" layout="vertical" fill="var(--color-currentAmount)" radius={4} />
             </BarChart>
           </ChartContainer>
@@ -76,3 +86,5 @@ export function GoalProgressChart({ data, currency }: GoalProgressChartProps) {
     </Card>
   )
 }
+
+    

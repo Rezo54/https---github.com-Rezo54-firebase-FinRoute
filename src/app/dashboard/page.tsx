@@ -140,7 +140,7 @@ export default function DashboardPage() {
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
         <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
           <KeyMetrics currency={currency} data={metricsData} />
-          <GoalProgressChart data={planData?.goals ?? []} currency={currency} />
+          <GoalProgressChart data={planData?.goals ?? goals} currency={currency} />
           <Achievements />
           <Reminders />
         </div>
@@ -231,7 +231,7 @@ export default function DashboardPage() {
 
                   <div className="space-y-4">
                      <Label className="text-base font-semibold">Your Financial Goals</Label>
-                     {formErrors?.goals && <p className="text-sm font-medium text-destructive">{formErrors.goals[0]}</p>}
+                     {formErrors?.goals && <p className="text-sm font-medium text-destructive">{formErrors.goals.toString()}</p>}
                      {goals.map((goal, index) => (
                        <div key={goal.id} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg bg-muted/50 relative">
                          <div className="space-y-2 md:col-span-2">
@@ -250,11 +250,9 @@ export default function DashboardPage() {
                            <Label htmlFor={`goal-date-${goal.id}`}>Target Date</Label>
                            <Input id={`goal-date-${goal.id}`} type="date" value={goal.targetDate} onChange={e => handleGoalChange(goal.id, 'targetDate', e.target.value)} />
                          </div>
-                         {goals.length > 1 && (
-                           <Button type="button" variant="ghost" size="icon" className="absolute -top-2 -right-2 text-muted-foreground hover:text-destructive" onClick={() => removeGoal(goal.id)}>
-                             <Trash2 className="h-4 w-4" />
-                           </Button>
-                         )}
+                         <Button type="button" variant="ghost" size="icon" className="absolute -top-2 -right-2 text-muted-foreground hover:text-destructive" onClick={() => removeGoal(goal.id)}>
+                           <Trash2 className="h-4 w-4" />
+                         </Button>
                        </div>
                      ))}
                      <Button type="button" variant="outline" onClick={addGoal} className="w-full md:w-auto">
@@ -279,3 +277,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

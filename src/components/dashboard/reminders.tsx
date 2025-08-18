@@ -1,10 +1,11 @@
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Bell, Calendar, CreditCard } from "lucide-react";
+import { Bell, Calendar, CreditCard, PiggyBank } from "lucide-react";
 
 const reminders = [
+  { icon: PiggyBank, text: "Update your savings progress for goals", due: "Due this month" },
   { icon: CreditCard, text: "Pay credit card bill", due: "Due in 3 days" },
   { icon: Calendar, text: "Review investment portfolio", due: "Due this week" },
-  { icon: Bell, text: "Set up automatic savings transfer", due: "Past due" }
 ];
 
 export function Reminders() {
@@ -34,3 +35,5 @@ export function Reminders() {
     </Card>
   );
 }
+
+    
