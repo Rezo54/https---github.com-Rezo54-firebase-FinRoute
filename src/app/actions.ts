@@ -106,16 +106,31 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
 
 export async function generatePlan(prevState: State, formData: FormData): Promise<State> {
   try {
-    const goalsData = JSON.parse(formData.get('goals') as string);
-    const rawData = {
-      netWorth: formData.get('netWorth'),
-      savingsRate: formData.get('savingsRate'),
-      totalDebt: formData.get('totalDebt'),
-      monthlyNetSalary: formData.get('monthlyNetSalary'),
-      goals: goalsData,
-      currency: formData.get('currency'),
-      isFirstPlan: formData.get('isFirstPlan'),
-    };
+    const rawData: { [key: string]: any } = {};
+    const goalsData: any[] = [];
+    const goalEntries: { [key: string]: any } = {};
+
+    for (const [key, value] of formData.entries()) {
+      if (key.startsWith('goal-')) {
+        const [_, id, field] = key.split('-');
+        if (!goalEntries[id]) {
+          goalEntries[id] = { id: id };
+        }
+        goalEntries[id][field] = value;
+      } else {
+        rawData[key] = value;
+      }
+    }
+    
+    for (const id in goalEntries) {
+      goalsData.push(goalEntries[id]);
+    }
+    
+    rawData.goals = goalsData.map(g => ({
+        ...g,
+        description: g.description === '' ? undefined : g.description,
+    }));
+
 
     const validatedFields = formSchema.safeParse(rawData);
     
@@ -143,10 +158,7 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
     const input: FinancialPlanInput = {
       age: age,
       currency: currencySymbols[currency] || currency,
-      goals: goals.map(g => ({
-        ...g,
-        description: g.description === '' ? undefined : g.description,
-      })),
+      goals: goals,
       keyMetrics: {
         netWorth: netWorth,
         savingsRate: savingsRate,

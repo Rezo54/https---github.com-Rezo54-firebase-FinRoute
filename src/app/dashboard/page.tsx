@@ -83,9 +83,7 @@ function Dashboard() {
         description: "Your personalized financial plan is ready.",
       });
       setGoals(state.goals ?? []);
-      setNewGoal({ name: '', targetAmount: 0, currentAmount: 0, targetDate: '', description: '' });
-      setFormGoals([]);
-
+      
       if (isFirstPlan) {
         setIsFirstPlan(false);
       }
@@ -95,6 +93,10 @@ function Dashboard() {
            setAchievements(prev => [...prev, state.newAchievement!]);
         }
       }
+       // Only clear goals, keep profile info
+      setFormGoals([]);
+      setNewGoal({ name: '', targetAmount: 0, currentAmount: 0, targetDate: '', description: '' });
+
 
     } else if (state.message && state.message !== 'success' && state.message !== 'loading') {
       toast({
@@ -162,7 +164,8 @@ function Dashboard() {
   }, [selectedGoal, goals, achievements, toast]);
 
   const profileErrors = state.errors?.fieldErrors;
-  const goalsError = state.errors?.formErrors?.[0];
+  const goalsError = state.errors?.formErrors?.[0] ?? state.errors?.fieldErrors?.goals?.[0];
+
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
@@ -278,21 +281,29 @@ function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                    {formGoals.map((goal) => (
-                        <Card key={goal.id} className="p-4 bg-muted/30">
-                            <input type="hidden" name="goals" value={JSON.stringify(goal)} />
-                            <div className="flex justify-between items-start">
-                              <div className="space-y-1">
-                                <p className="font-semibold">{goal.name}</p>
-                                <p className="text-sm text-muted-foreground">Target: {new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(goal.targetAmount)} by {goal.targetDate}</p>
-                              </div>
-                              <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveGoal(goal.id)}>
-                                <X className="h-4 w-4" />
-                              </Button>
+                  {formGoals.map((goal) => (
+                    <div key={goal.id}>
+                      <input type="hidden" name={`goal-${goal.id}-id`} value={goal.id} />
+                      <input type="hidden" name={`goal-${goal.id}-name`} value={goal.name} />
+                      <input type="hidden" name={`goal-${goal.id}-description`} value={goal.description} />
+                      <input type="hidden" name={`goal-${goal.id}-targetAmount`} value={goal.targetAmount} />
+                      <input type="hidden" name={`goal-${goal.id}-currentAmount`} value={goal.currentAmount} />
+                      <input type="hidden" name={`goal-${goal.id}-targetDate`} value={goal.targetDate} />
+                      <Card className="p-4 bg-muted/30">
+                          <div className="flex justify-between items-start">
+                            <div className="space-y-1">
+                              <p className="font-semibold">{goal.name}</p>
+                              <p className="text-sm text-muted-foreground">Target: {new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(goal.targetAmount)} by {goal.targetDate}</p>
                             </div>
-                        </Card>
-                    ))}
+                            <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveGoal(goal.id)}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                      </Card>
+                    </div>
+                  ))}
                 </div>
+
                 {goalsError && <p className="text-sm font-medium text-destructive mt-2">{goalsError}</p>}
                 
                 <Card className="p-4 border-dashed mt-4">
@@ -377,11 +388,11 @@ function Dashboard() {
           </div>
           
           <div className="space-y-8">
-            <GoalProgressChart data={goals} currency={currency} onGoalSelect={handleGoalSelect} />
             <KeyMetrics 
               currency={currency} 
               data={{ netWorth, savingsRate, debtToIncome, totalDebt, monthlyNetSalary }} 
             />
+            <GoalProgressChart data={goals} currency={currency} onGoalSelect={handleGoalSelect} />
             <Achievements achievements={achievements} />
             <Reminders goals={goals} />
           </div>
@@ -399,5 +410,3 @@ function Dashboard() {
     </div>
   );
 }
-
-    
