@@ -162,7 +162,7 @@ function Dashboard() {
   const goalsError = state.errors?.formErrors?.[0];
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground font-body">
+    <div className="flex flex-col min-h-screen bg-background text-foreground">
       <Header currency={currency} setCurrency={setCurrency} />
       <main className="flex-1 container mx-auto p-4 md:p-8">
         <form action={formAction} className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
@@ -171,108 +171,108 @@ function Dashboard() {
           <div className="lg:col-span-2 space-y-8">
             <Card>
               <CardHeader>
-                  <CardTitle className="font-headline text-3xl">Your Financial Hub</CardTitle>
-                  <CardDescription>Start by telling us about your finances. We'll generate a personalized plan for you.</CardDescription>
+                  <CardTitle>Your Profile</CardTitle>
+                  <CardDescription>Tell us about your current financial situation.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                      <Label htmlFor="netWorth" className="flex items-center gap-1">
-                          Net Worth
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Your total assets minus your total liabilities.</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                      </Label>
-                      <Input 
-                        id="netWorth" 
-                        name="netWorth" 
-                        type="number" 
-                        placeholder="e.g. 50000" 
-                        value={netWorth ?? ''} 
-                        onChange={(e) => setNetWorth(e.target.value ? parseFloat(e.target.value) : null)}
-                      />
-                      {profileErrors?.netWorth && <p className="text-sm font-medium text-destructive">{profileErrors.netWorth[0]}</p>}
-                  </div>
+                <div className="space-y-2">
+                    <Label htmlFor="netWorth" className="flex items-center gap-1">
+                        Net Worth
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Your total assets minus your total liabilities.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                    </Label>
+                    <Input 
+                      id="netWorth" 
+                      name="netWorth" 
+                      type="number" 
+                      placeholder="e.g. 50000" 
+                      value={netWorth ?? ''} 
+                      onChange={(e) => setNetWorth(e.target.value ? parseFloat(e.target.value) : null)}
+                    />
+                    {profileErrors?.netWorth && <p className="text-sm font-medium text-destructive">{profileErrors.netWorth[0]}</p>}
+                </div>
 
-                  <div className="space-y-2">
-                      <Label htmlFor="savingsRate" className="flex items-center gap-1">
-                        Savings Rate (%)
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>The percentage of your net income that you save.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </Label>
-                      <div className="relative">
-                        <Input 
-                          id="savingsRate" 
-                          name="savingsRate" 
-                          type="number" 
-                          placeholder="e.g. 15"
-                          className="pr-8"
-                          value={savingsRate ?? ''}
-                          onChange={(e) => setSavingsRate(e.target.value ? parseFloat(e.target.value) : null)}
-                        />
-                          <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      </div>
-                      {profileErrors?.savingsRate && <p className="text-sm font-medium text-destructive">{profileErrors.savingsRate[0]}</p>}
-                  </div>
-                  
-                  <div className="space-y-2">
-                      <Label htmlFor="monthlyNetSalary">Monthly Net Salary</Label>
+                <div className="space-y-2">
+                    <Label htmlFor="savingsRate" className="flex items-center gap-1">
+                      Savings Rate (%)
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>The percentage of your net income that you save.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </Label>
+                    <div className="relative">
                       <Input 
-                        id="monthlyNetSalary" 
-                        name="monthlyNetSalary" 
+                        id="savingsRate" 
+                        name="savingsRate" 
                         type="number" 
-                        placeholder="e.g. 3000"
-                        value={monthlyNetSalary ?? ''}
-                        onChange={(e) => setMonthlyNetSalary(e.target.value ? parseFloat(e.target.value) : null)} 
+                        placeholder="e.g. 15"
+                        className="pr-8"
+                        value={savingsRate ?? ''}
+                        onChange={(e) => setSavingsRate(e.target.value ? parseFloat(e.target.value) : null)}
                       />
-                      {profileErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{profileErrors.monthlyNetSalary[0]}</p>}
-                  </div>
-                  
-                  <div className="space-y-2">
-                      <Label htmlFor="totalDebt" className="flex items-center gap-1">
-                        Current Total Debt
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>The total amount of debt you currently have.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </Label>
-                      <Input 
-                        id="totalDebt" 
-                        name="totalDebt" 
-                        type="number" 
-                        placeholder="e.g. 10000"
-                        value={totalDebt ?? ''}
-                        onChange={(e) => setTotalDebt(e.target.value ? parseFloat(e.target.value) : null)}
-                      />
-                      {profileErrors?.totalDebt && <p className="text-sm font-medium text-destructive">{profileErrors.totalDebt[0]}</p>}
-                  </div>
+                        <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    </div>
+                    {profileErrors?.savingsRate && <p className="text-sm font-medium text-destructive">{profileErrors.savingsRate[0]}</p>}
+                </div>
+                
+                <div className="space-y-2">
+                    <Label htmlFor="monthlyNetSalary">Monthly Net Salary</Label>
+                    <Input 
+                      id="monthlyNetSalary" 
+                      name="monthlyNetSalary" 
+                      type="number" 
+                      placeholder="e.g. 3000"
+                      value={monthlyNetSalary ?? ''}
+                      onChange={(e) => setMonthlyNetSalary(e.target.value ? parseFloat(e.target.value) : null)} 
+                    />
+                    {profileErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{profileErrors.monthlyNetSalary[0]}</p>}
+                </div>
+                
+                <div className="space-y-2">
+                    <Label htmlFor="totalDebt" className="flex items-center gap-1">
+                      Current Total Debt
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>The total amount of debt you currently have.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </Label>
+                    <Input 
+                      id="totalDebt" 
+                      name="totalDebt" 
+                      type="number" 
+                      placeholder="e.g. 10000"
+                      value={totalDebt ?? ''}
+                      onChange={(e) => setTotalDebt(e.target.value ? parseFloat(e.target.value) : null)}
+                    />
+                    {profileErrors?.totalDebt && <p className="text-sm font-medium text-destructive">{profileErrors.totalDebt[0]}</p>}
+                </div>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader>
-                <CardTitle className="font-headline text-xl">Financial Goals</CardTitle>
-                <CardDescription>Add your financial goals to get started.</CardDescription>
+                <CardTitle>Financial Goals</CardTitle>
+                <CardDescription>Add your financial goals. You can add more than one.</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -332,6 +332,10 @@ function Dashboard() {
                             </PopoverContent>
                         </Popover>
                     </div>
+                    <div className="sm:col-span-2 space-y-2">
+                        <Label htmlFor="goalDescription">Goal Description (Optional)</Label>
+                        <Textarea id="goalDescription" placeholder="e.g., A reliable car for commuting" value={newGoal.description} onChange={(e) => setNewGoal({...newGoal, description: e.target.value})} />
+                    </div>
                   </div>
                   <Button type="button" variant="secondary" onClick={handleAddGoal} className="mt-4 w-full">Add Goal</Button>
                 </Card>
@@ -347,7 +351,7 @@ function Dashboard() {
             {state.plan ? (
               <Card>
                 <CardHeader>
-                  <CardTitle className="font-headline">Your Personalized Plan</CardTitle>
+                  <CardTitle>Your Personalized Plan</CardTitle>
                 </CardHeader>
                 <CardContent className="prose prose-invert max-w-none">
                   <div dangerouslySetInnerHTML={{ __html: state.plan.replace(/\n/g, '<br />') }} />
@@ -357,7 +361,7 @@ function Dashboard() {
                 !state.errors && (
                 <Card>
                     <CardHeader>
-                        <CardTitle className="font-headline">Your Personalized Plan</CardTitle>
+                        <CardTitle>Your Personalized Plan</CardTitle>
                     </CardHeader>
                     <CardContent className="flex items-center justify-center min-h-[200px]">
                         <div className="text-center text-muted-foreground">
