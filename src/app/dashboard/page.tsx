@@ -36,11 +36,6 @@ type PlanGoal = {
     targetDate: string;
 };
 
-type PlanData = {
-  goals: PlanGoal[];
-  plan: string | null;
-};
-
 type MetricsData = {
     netWorth: number | null;
     savingsRate: number | null;
@@ -54,7 +49,6 @@ const initialFormState = {
   goals: null,
 };
 
-// A simple client-side ID counter
 let nextId = 1;
 
 const initialGoals: Goal[] = [{ id: nextId++, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }];
@@ -82,7 +76,8 @@ function SubmitButton() {
 
 export default function DashboardPage() {
   const [currency, setCurrency] = useState('ZAR');
-  const [planData, setPlanData] = useState<PlanData | null>(null);
+  const [generatedPlan, setGeneratedPlan] = useState<string | null>(null);
+  const [allGoals, setAllGoals] = useState<PlanGoal[]>([]);
   
   const [selectedGoal, setSelectedGoal] = useState<PlanGoal | null>(null);
   const [isUpdateGoalDialogOpen, setUpdateGoalDialogOpen] = useState(false);
@@ -92,33 +87,31 @@ export default function DashboardPage() {
   const [totalDebt, setTotalDebt] = useState<number | null>(null);
   const [monthlyNetSalary, setMonthlyNetSalary] = useState<number | null>(null);
   
-  const [goals, setGoals] = useState<Goal[]>([]);
+  const [formGoals, setFormGoals] = useState<Goal[]>([]);
 
   const [debtToIncome, setDebtToIncome] = useState(0);
 
   const [state, formAction] = useActionState(generatePlan, initialFormState);
   const { toast } = useToast();
   
-  // Effect to add the initial goal form on the client-side to prevent hydration errors
   useEffect(() => {
-    if (goals.length === 0) {
-      setGoals([{ id: nextId++, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
+    if (formGoals.length === 0) {
+      setFormGoals([{ id: nextId++, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   const handleGoalChange = (id: number, field: keyof Omit<Goal, 'id'>, value: string | number | null) => {
-    setGoals(goals.map(goal => goal.id === id ? { ...goal, [field]: value } : goal));
+    setFormGoals(formGoals.map(goal => goal.id === id ? { ...goal, [field]: value } : goal));
   };
 
   const addGoal = () => {
-    setGoals([...goals, { id: nextId++, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
+    setFormGoals([...formGoals, { id: nextId++, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
   };
 
   const removeGoal = (id: number) => {
-    // Prevent removing the last goal
-    if (goals.length > 1) {
-      setGoals(goals.filter(goal => goal.id !== id));
+    if (formGoals.length > 1) {
+      setFormGoals(formGoals.filter(goal => goal.id !== id));
     }
   };
 
@@ -131,23 +124,21 @@ export default function DashboardPage() {
   }, [totalDebt, monthlyNetSalary]);
   
   useEffect(() => {
-    if (state.message === "success" && state.plan) {
+    if (state.message === "success" && state.plan && state.goals) {
       toast({
         title: "Plan Generated!",
         description: "Your personalized financial plan is ready below.",
       });
-      setPlanData({
-        goals: state.goals ?? [],
-        plan: state.plan,
-      });
+      
+      setGeneratedPlan(state.plan);
+      setAllGoals(prevGoals => [...prevGoals, ...state.goals!]);
 
       // Reset form fields
       setNetWorth(null);
       setSavingsRate(null);
       setTotalDebt(null);
       setMonthlyNetSalary(null);
-      setGoals([{ id: nextId++, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
-
+      setFormGoals([{ id: nextId++, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
 
     } else if (state.message && state.message !== 'Invalid form data.' && state.message !== 'success') {
       toast({
@@ -164,16 +155,30 @@ export default function DashboardPage() {
   };
   
   const handleUpdateGoal = (updatedAmount: number) => {
-    if (planData && selectedGoal) {
-      const updatedGoals = planData.goals.map(g => 
-        g.name === selectedGoal.name ? { ...g, currentAmount: updatedAmount } : g
+    if (selectedGoal) {
+      setAllGoals(prevGoals => 
+        prevGoals.map(g => 
+          g.name === selectedGoal.name ? { ...g, currentAmount: updatedAmount } : g
+        )
       );
-      setPlanData({ ...planData, goals: updatedGoals });
       toast({
         title: "Goal Updated!",
         description: `Your savings for "${selectedGoal.name}" have been updated.`,
       });
     }
+    setSelectedGoal(null);
+  };
+
+  const handleDeleteGoal = () => {
+    if (selectedGoal) {
+      setAllGoals(prevGoals => prevGoals.filter(g => g.name !== selectedGoal.name));
+      toast({
+        variant: "destructive",
+        title: "Goal Deleted!",
+        description: `Your goal "${selectedGoal.name}" has been removed.`,
+      });
+    }
+    setUpdateGoalDialogOpen(false);
     setSelectedGoal(null);
   };
 
@@ -190,10 +195,10 @@ export default function DashboardPage() {
       <Header currency={currency} setCurrency={setCurrency} />
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
         <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
-          <KeyMetrics currency={currency} data={planData ? { netWorth: planData.goals.reduce((acc, g) => acc + (g.currentAmount || 0), 0), savingsRate: null, debtToIncome: 0 } : metricsData} />
-          <GoalProgressChart data={planData?.goals ?? []} currency={currency} onGoalSelect={handleGoalSelect} />
+          <KeyMetrics currency={currency} data={{ netWorth: allGoals.reduce((acc, g) => acc + (g.currentAmount || 0), 0), savingsRate: null, debtToIncome: 0 }} />
+          <GoalProgressChart data={allGoals} currency={currency} onGoalSelect={handleGoalSelect} />
           <Achievements />
-          <Reminders goals={planData?.goals ?? []} />
+          <Reminders goals={allGoals} />
         </div>
         <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3">
           <Card className="col-span-1 lg:col-span-3">
@@ -209,10 +214,8 @@ export default function DashboardPage() {
             <CardContent>
               <TooltipProvider>
                  <form action={formAction} className="space-y-6">
-                   {/* Hidden inputs for goals */}
-                   {goals.map(goal => (
+                   {formGoals.map(goal => (
                      <input key={goal.id} type="hidden" name="goals" value={JSON.stringify({
-                       // Filter out the client-side ID before sending to the server
                        name: goal.name,
                        description: goal.description,
                        targetAmount: goal.targetAmount,
@@ -295,9 +298,9 @@ export default function DashboardPage() {
                   <div className="space-y-4">
                      <Label className="text-base font-semibold">Your Financial Goals</Label>
                      {formErrors?.goals && <p className="text-sm font-medium text-destructive">{formErrors.goals.toString()}</p>}
-                     {goals.map((goal, index) => (
+                     {formGoals.map((goal, index) => (
                        <div key={goal.id} className="p-4 border rounded-lg bg-muted/50 relative space-y-4">
-                         {goals.length > 1 && (
+                         {formGoals.length > 1 && (
                             <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-muted-foreground hover:text-destructive" onClick={() => removeGoal(goal.id)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -335,10 +338,10 @@ export default function DashboardPage() {
                   <SubmitButton />
                 </form>
               </TooltipProvider>
-              {planData?.plan && (
+              {generatedPlan && (
                 <div className="mt-8 rounded-lg border bg-muted/20 p-6">
                   <h3 className="font-headline text-xl font-semibold mb-4 text-foreground">Your Personalized Plan</h3>
-                  <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap">{planData.plan}</div>
+                  <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap">{generatedPlan}</div>
                 </div>
               )}
             </CardContent>
@@ -350,6 +353,7 @@ export default function DashboardPage() {
         onOpenChange={setUpdateGoalDialogOpen}
         goal={selectedGoal}
         onUpdate={handleUpdateGoal}
+        onDelete={handleDeleteGoal}
         currency={currency}
       />
     </div>

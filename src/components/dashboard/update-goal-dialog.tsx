@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Trash2 } from 'lucide-react';
 
 interface Goal {
     name: string;
@@ -27,6 +28,7 @@ interface UpdateGoalDialogProps {
   onOpenChange: (isOpen: boolean) => void;
   goal: Goal | null;
   onUpdate: (updatedAmount: number) => void;
+  onDelete: () => void;
   currency: string;
 }
 
@@ -35,6 +37,7 @@ export function UpdateGoalDialog({
   onOpenChange,
   goal,
   onUpdate,
+  onDelete,
   currency,
 }: UpdateGoalDialogProps) {
   const [amount, setAmount] = useState<number | string>('');
@@ -82,7 +85,11 @@ export function UpdateGoalDialog({
             />
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="sm:justify-between">
+          <Button variant="destructive" onClick={onDelete}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete Goal
+          </Button>
           <Button type="submit" onClick={handleSubmit}>Save changes</Button>
         </DialogFooter>
       </DialogContent>
