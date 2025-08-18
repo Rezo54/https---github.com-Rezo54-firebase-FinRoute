@@ -182,7 +182,7 @@ function Dashboard() {
                   <CardTitle>Your Profile</CardTitle>
                   <CardDescription>Tell us about your current financial situation.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1">
                 <div className="space-y-2">
                     <Label htmlFor="netWorth" className="flex items-center gap-1">
                         Net Worth
