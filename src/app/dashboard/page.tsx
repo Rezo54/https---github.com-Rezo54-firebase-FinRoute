@@ -15,11 +15,13 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Bot, Loader2, Sparkles, Percent, Info, PlusCircle, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type Goal = {
   id: number;
   name: string;
+  description: string;
   targetAmount: number | null;
   currentAmount: number | null;
   targetDate: string;
@@ -82,7 +84,7 @@ export default function DashboardPage() {
   useEffect(() => {
     // Initialize with one goal on the client side to avoid hydration errors
     if (goals.length === 0) {
-      setGoals([{ id: Date.now(), name: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
+      setGoals([{ id: Date.now(), name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   
@@ -91,7 +93,7 @@ export default function DashboardPage() {
   };
 
   const addGoal = () => {
-    setGoals([...goals, { id: Date.now(), name: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
+    setGoals([...goals, { id: Date.now(), name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
   };
 
   const removeGoal = (id: number) => {
@@ -162,6 +164,7 @@ export default function DashboardPage() {
                    {goals.map(goal => (
                      <input key={goal.id} type="hidden" name="goals" value={JSON.stringify({
                        name: goal.name,
+                       description: goal.description,
                        targetAmount: goal.targetAmount,
                        currentAmount: goal.currentAmount,
                        targetDate: goal.targetDate,
@@ -243,22 +246,28 @@ export default function DashboardPage() {
                      <Label className="text-base font-semibold">Your Financial Goals</Label>
                      {formErrors?.goals && <p className="text-sm font-medium text-destructive">{formErrors.goals.toString()}</p>}
                      {goals.map((goal, index) => (
-                       <div key={goal.id} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg bg-muted/50 relative">
-                         <div className="space-y-2 md:col-span-2">
-                           <Label htmlFor={`goal-name-${goal.id}`}>Goal Name</Label>
-                           <Input id={`goal-name-${goal.id}`} value={goal.name} onChange={e => handleGoalChange(goal.id, 'name', e.target.value)} placeholder="e.g., Mauritius Holiday" />
+                       <div key={goal.id} className="p-4 border rounded-lg bg-muted/50 relative space-y-4">
+                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                           <div className="space-y-2 md:col-span-2">
+                             <Label htmlFor={`goal-name-${goal.id}`}>Goal Name</Label>
+                             <Input id={`goal-name-${goal.id}`} value={goal.name} onChange={e => handleGoalChange(goal.id, 'name', e.target.value)} placeholder="e.g., Mauritius Holiday" />
+                           </div>
+                           <div className="space-y-2">
+                             <Label htmlFor={`goal-target-${goal.id}`}>Target Amount</Label>
+                             <Input id={`goal-target-${goal.id}`} type="number" value={goal.targetAmount ?? ''} onChange={e => handleGoalChange(goal.id, 'targetAmount', e.target.value === '' ? null : Number(e.target.value))} placeholder="e.g., 10000" />
+                           </div>
+                           <div className="space-y-2">
+                             <Label htmlFor={`goal-current-${goal.id}`}>Current Savings</Label>
+                             <Input id={`goal-current-${goal.id}`} type="number" value={goal.currentAmount ?? ''} onChange={e => handleGoalChange(goal.id, 'currentAmount', e.target.value === '' ? null : Number(e.target.value))} placeholder="e.g., 1500" />
+                           </div>
+                           <div className="space-y-2 md:col-start-4">
+                             <Label htmlFor={`goal-date-${goal.id}`}>Target Date</Label>
+                             <Input id={`goal-date-${goal.id}`} type="date" value={goal.targetDate} onChange={e => handleGoalChange(goal.id, 'targetDate', e.target.value)} />
+                           </div>
                          </div>
                          <div className="space-y-2">
-                           <Label htmlFor={`goal-target-${goal.id}`}>Target Amount</Label>
-                           <Input id={`goal-target-${goal.id}`} type="number" value={goal.targetAmount ?? ''} onChange={e => handleGoalChange(goal.id, 'targetAmount', e.target.value === '' ? null : Number(e.target.value))} placeholder="e.g., 10000" />
-                         </div>
-                         <div className="space-y-2">
-                           <Label htmlFor={`goal-current-${goal.id}`}>Current Savings</Label>
-                           <Input id={`goal-current-${goal.id}`} type="number" value={goal.currentAmount ?? ''} onChange={e => handleGoalChange(goal.id, 'currentAmount', e.target.value === '' ? null : Number(e.target.value))} placeholder="e.g., 1500" />
-                         </div>
-                         <div className="space-y-2">
-                           <Label htmlFor={`goal-date-${goal.id}`}>Target Date</Label>
-                           <Input id={`goal-date-${goal.id}`} type="date" value={goal.targetDate} onChange={e => handleGoalChange(goal.id, 'targetDate', e.target.value)} />
+                            <Label htmlFor={`goal-description-${goal.id}`}>Description (Optional)</Label>
+                            <Textarea id={`goal-description-${goal.id}`} value={goal.description} onChange={e => handleGoalChange(goal.id, 'description', e.target.value)} placeholder="e.g., A 2-week trip with the family, including flights, accommodation, and activities." />
                          </div>
                          <Button type="button" variant="ghost" size="icon" className="absolute -top-2 -right-2 text-muted-foreground hover:text-destructive" onClick={() => removeGoal(goal.id)}>
                            <Trash2 className="h-4 w-4" />
@@ -287,3 +296,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

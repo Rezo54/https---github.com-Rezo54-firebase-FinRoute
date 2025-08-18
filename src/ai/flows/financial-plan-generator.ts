@@ -14,6 +14,7 @@ import {z} from 'genkit';
 
 const GoalSchema = z.object({
   name: z.string().describe('The name of the financial goal.'),
+  description: z.string().optional().describe('An optional, more detailed description of the goal.'),
   targetAmount: z.number().describe('The target amount to save for the goal.'),
   currentAmount: z.number().describe('The amount already saved for the goal.'),
   targetDate: z.string().describe('The target date to achieve the goal (e.g., YYYY-MM-DD).'),
@@ -57,6 +58,9 @@ const prompt = ai.definePrompt({
   **User's Financial Goals:**
   {{#each goals}}
   - **Goal:** {{name}}
+    {{#if description}}
+    - **Description:** {{description}}
+    {{/if}}
     - **Target Amount:** {{{../currency}}}{{targetAmount}}
     - **Current Savings:** {{{../currency}}}{{currentAmount}}
     - **Target Date:** {{targetDate}}
@@ -97,3 +101,5 @@ const financialPlanGeneratorFlow = ai.defineFlow(
     };
   }
 );
+
+    

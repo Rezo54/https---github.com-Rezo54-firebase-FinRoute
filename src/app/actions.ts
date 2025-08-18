@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation';
 
 const goalSchema = z.object({
   name: z.string().min(1, "Goal name is required."),
+  description: z.string().optional(),
   targetAmount: z.coerce.number().min(1, "Target amount must be greater than 0."),
   currentAmount: z.coerce.number().min(0, "Current amount must be a positive number."),
   targetDate: z.string().min(1, "Target date is required."),
@@ -31,6 +32,7 @@ type State = {
   plan?: string | null;
   goals?: {
     name: string;
+    description?: string;
     targetAmount: number;
     currentAmount: number;
     targetDate: string;
