@@ -1,0 +1,63 @@
+'use server';
+
+import { financialPlanGenerator, type FinancialPlanInput } from '@/ai/flows/financial-plan-generator';
+import { z } from 'zod';
+
+const formSchema = z.object({
+  goals: z.string().min(10, "Please describe your financial goals in more detail."),
+  financialData: z.string().min(50, "Please provide more comprehensive financial data for an accurate plan."),
+});
+
+type State = {
+  message: string;
+  errors?: {
+    goals?: string[];
+    financialData?: string[];
+  } | null;
+  plan?: string | null;
+}
+
+export async function generatePlan(prevState: State, formData: FormData): Promise<State> {
+  try {
+    const validatedFields = formSchema.safeParse({
+      goals: formData.get('goals'),
+      financialData: formData.get('financialData'),
+    });
+
+    if (!validatedFields.success) {
+      return {
+        message: 'Invalid form data.',
+        errors: validatedFields.error.flatten().fieldErrors,
+        plan: null,
+      };
+    }
+    
+    const input: FinancialPlanInput = {
+      goals: validatedFields.data.goals,
+      financialData: validatedFields.data.financialData,
+    };
+
+    const result = await financialPlanGenerator(input);
+
+    if (!result.plan) {
+      return {
+        message: 'The AI could not generate a plan based on the data provided. Please try again with more details.',
+        errors: null,
+        plan: null
+      }
+    }
+
+    return {
+      message: 'success',
+      errors: null,
+      plan: result.plan,
+    };
+  } catch (error) {
+    console.error(error);
+    return {
+      message: 'An unexpected error occurred on the server. Please try again later.',
+      errors: null,
+      plan: null,
+    };
+  }
+}
