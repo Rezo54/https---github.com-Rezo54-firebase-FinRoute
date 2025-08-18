@@ -1,7 +1,9 @@
+
 'use server';
 
 import { financialPlanGenerator, type FinancialPlanInput } from '@/ai/flows/financial-plan-generator';
 import { z } from 'zod';
+import { redirect } from 'next/navigation';
 
 const formSchema = z.object({
   goals: z.string().min(10, "Please describe your financial goals in more detail."),
@@ -16,6 +18,59 @@ type State = {
   } | null;
   plan?: string | null;
 }
+
+const loginSchema = z.object({
+  username: z.string().min(1, { message: "Username is required." }),
+  password: z.string().min(1, { message: "Password is required." }),
+});
+
+const signupSchema = z.object({
+  username: z.string().min(3, { message: "Username must be at least 3 characters long." }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters long." }),
+});
+
+type AuthState = {
+  message: string;
+  errors?: {
+    username?: string[];
+    password?: string[];
+  } | null;
+}
+
+export async function login(prevState: AuthState, formData: FormData): Promise<AuthState> {
+  const validatedFields = loginSchema.safeParse(Object.fromEntries(formData.entries()));
+
+  if (!validatedFields.success) {
+    return {
+      message: 'Invalid form data.',
+      errors: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+
+  // TODO: Implement actual login logic
+  console.log("Login attempt:", validatedFields.data);
+
+  // Simulate successful login
+  redirect('/dashboard');
+}
+
+export async function signup(prevState: AuthState, formData: FormData): Promise<AuthState> {
+  const validatedFields = signupSchema.safeParse(Object.fromEntries(formData.entries()));
+
+  if (!validatedFields.success) {
+    return {
+      message: 'Invalid form data.',
+      errors: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+
+  // TODO: Implement actual signup logic (e.g., create user in a database)
+  console.log("Signup attempt:", validatedFields.data);
+  
+  // Simulate successful signup and redirect
+  redirect('/dashboard');
+}
+
 
 export async function generatePlan(prevState: State, formData: FormData): Promise<State> {
   try {
