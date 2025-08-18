@@ -1,21 +1,40 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, ChangeEvent } from 'react';
 import { FinRouteLogo } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, ChevronsUpDown } from "lucide-react";
+import { User, ChevronsUpDown, LogOut, Upload } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
 
 export function Header() {
   const [currency, setCurrency] = useState('USD');
+  const [avatarSrc, setAvatarSrc] = useState("https://placehold.co/100x100.png");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setAvatarSrc(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -45,12 +64,36 @@ export function Header() {
               <DropdownMenuItem onSelect={() => setCurrency('SGD')}>SGD</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Avatar>
-            <AvatarImage src="https://placehold.co/100x100.png" alt="User" />
-            <AvatarFallback>
-              <User />
-            </AvatarFallback>
-          </Avatar>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+               <Avatar className="cursor-pointer">
+                <AvatarImage src={avatarSrc} alt="User" />
+                <AvatarFallback>
+                  <User />
+                </AvatarFallback>
+              </Avatar>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleAvatarClick}>
+                <Upload className="mr-2 h-4 w-4" />
+                <span>Upload Photo</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileChange}
+            className="hidden" 
+            accept="image/*"
+          />
+
         </div>
       </div>
     </header>
