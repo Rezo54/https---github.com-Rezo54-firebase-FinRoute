@@ -10,22 +10,21 @@ import { KeyMetrics } from "@/components/dashboard/key-metrics";
 import { Reminders } from "@/components/dashboard/reminders";
 import { Header } from "@/components/layout/header";
 
-// Define a more specific type for the data we handle on this page.
-type FinancialPlanOutput = {
+type FinancialData = {
   keyMetrics: {
     netWorth: number;
     savingsRate: number;
     debtToIncome: number;
   };
-  goals: any[]; // For now, goals are not being handled in the new flow
+  goals: any[];
   plan: string | null;
 };
 
 export default function DashboardPage() {
   const [currency, setCurrency] = useState('USD');
-  const [financialData, setFinancialData] = useState<FinancialPlanOutput | null>(null);
+  const [financialData, setFinancialData] = useState<FinancialData | null>(null);
 
-  const handlePlanGenerated = (data: FinancialPlanOutput) => {
+  const handlePlanGenerated = (data: FinancialData) => {
     setFinancialData(data);
   };
 

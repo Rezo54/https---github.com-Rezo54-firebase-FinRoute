@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect } from "react";
@@ -15,6 +16,8 @@ const initialState = {
   message: "",
   errors: {},
   plan: null,
+  keyMetrics: null,
+  goals: null
 };
 
 function SubmitButton() {
@@ -51,19 +54,11 @@ export function FinancialPlanForm({ onPlanGenerated, plan }: FinancialPlanFormPr
         title: "Plan Generated!",
         description: "Your personalized financial plan is ready below.",
       });
-      // We need to get the inputs from the form again to update the parent state
-      const form = document.querySelector('form');
-      if (form) {
-        const formData = new FormData(form);
-        const netWorth = parseFloat(formData.get('netWorth') as string || '0');
-        const savingsRate = parseFloat(formData.get('savingsRate') as string || '0');
-        const debtToIncome = parseFloat(formData.get('debtToIncome') as string || '0');
-        onPlanGenerated({
-          keyMetrics: { netWorth, savingsRate, debtToIncome },
-          goals: [], // Goals are not handled in this form version
-          plan: state.plan,
-        });
-      }
+      onPlanGenerated({
+        keyMetrics: state.keyMetrics,
+        goals: state.goals,
+        plan: state.plan,
+      });
 
     } else if (state.message && state.message !== 'Invalid form data.') {
       toast({
@@ -87,10 +82,10 @@ export function FinancialPlanForm({ onPlanGenerated, plan }: FinancialPlanFormPr
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
              <div className="space-y-2">
               <Label htmlFor="netWorth" className="text-base">Net Worth</Label>
-              <Input id="netWorth" name="netWorth" type="number" placeholder="e.g., 50000" />
+              <Input id="netWorth" name="netWorth" type="number" placeholder="Assets minus liabilities" />
               {state.errors?.netWorth && <p className="text-sm font-medium text-destructive">{state.errors.netWorth[0]}</p>}
             </div>
              <div className="space-y-2">
@@ -102,12 +97,14 @@ export function FinancialPlanForm({ onPlanGenerated, plan }: FinancialPlanFormPr
               {state.errors?.savingsRate && <p className="text-sm font-medium text-destructive">{state.errors.savingsRate[0]}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="debtToIncome" className="text-base">Debt-to-Income Ratio</Label>
-               <div className="relative">
-                <Input id="debtToIncome" name="debtToIncome" type="number" placeholder="e.g., 35" className="pr-8" />
-                <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              </div>
-              {state.errors?.debtToIncome && <p className="text-sm font-medium text-destructive">{state.errors.debtToIncome[0]}</p>}
+              <Label htmlFor="totalDebt" className="text-base">Current Total Debt</Label>
+              <Input id="totalDebt" name="totalDebt" type="number" placeholder="Loans, credit cards, etc." />
+              {state.errors?.totalDebt && <p className="text-sm font-medium text-destructive">{state.errors.totalDebt[0]}</p>}
+            </div>
+             <div className="space-y-2">
+              <Label htmlFor="monthlyNetSalary" className="text-base">Monthly Net Salary</Label>
+              <Input id="monthlyNetSalary" name="monthlyNetSalary" type="number" placeholder="Salary after taxes" />
+               {state.errors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{state.errors.monthlyNetSalary[0]}</p>}
             </div>
           </div>
           <div className="space-y-2">

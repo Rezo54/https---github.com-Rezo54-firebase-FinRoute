@@ -9,7 +9,8 @@ const formSchema = z.object({
   goals: z.string().min(10, "Please describe your financial goals in more detail."),
   netWorth: z.coerce.number().min(0, "Net worth must be a positive number."),
   savingsRate: z.coerce.number().min(0, "Savings rate must be a positive number.").max(100, "Savings rate cannot exceed 100."),
-  debtToIncome: z.coerce.number().min(0, "Debt-to-income ratio must be a positive number.").max(100, "Debt-to-income ratio cannot exceed 100."),
+  totalDebt: z.coerce.number().min(0, "Total debt must be a positive number."),
+  monthlyNetSalary: z.coerce.number().min(0, "Monthly salary must be a positive number."),
 });
 
 type State = {
@@ -18,9 +19,16 @@ type State = {
     goals?: string[];
     netWorth?: string[];
     savingsRate?: string[];
-    debtToIncome?: string[];
+    totalDebt?: string[];
+    monthlyNetSalary?: string[];
   } | null;
   plan?: string | null;
+  keyMetrics?: {
+    netWorth: number;
+    savingsRate: number;
+    debtToIncome: number;
+  } | null,
+  goals?: any[] | null;
 }
 
 const loginSchema = z.object({
@@ -82,7 +90,8 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
       goals: formData.get('goals'),
       netWorth: formData.get('netWorth'),
       savingsRate: formData.get('savingsRate'),
-      debtToIncome: formData.get('debtToIncome'),
+      totalDebt: formData.get('totalDebt'),
+      monthlyNetSalary: formData.get('monthlyNetSalary'),
     });
 
     if (!validatedFields.success) {
@@ -92,13 +101,18 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
         plan: null,
       };
     }
+
+    const { netWorth, savingsRate, totalDebt, monthlyNetSalary, goals } = validatedFields.data;
+    
+    // Calculate Debt-to-Income Ratio
+    const debtToIncome = monthlyNetSalary > 0 ? Math.round((totalDebt / monthlyNetSalary) * 100) : 0;
     
     const input: FinancialPlanInput = {
-      goals: validatedFields.data.goals,
+      goals: goals,
       keyMetrics: {
-        netWorth: validatedFields.data.netWorth,
-        savingsRate: validatedFields.data.savingsRate,
-        debtToIncome: validatedFields.data.debtToIncome,
+        netWorth: netWorth,
+        savingsRate: savingsRate,
+        debtToIncome: debtToIncome,
       }
     };
 
@@ -116,6 +130,8 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
       message: 'success',
       errors: null,
       plan: result.plan,
+      keyMetrics: input.keyMetrics,
+      goals: result.goals,
     };
   } catch (error) {
     console.error(error);
