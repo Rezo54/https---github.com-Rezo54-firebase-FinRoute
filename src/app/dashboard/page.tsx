@@ -217,7 +217,7 @@ export default function DashboardPage() {
                ))}
                <input type="hidden" name="currency" value={currency} />
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <Card className="lg:col-span-1">
                    <CardHeader>
                      <div className="flex items-center gap-2">
@@ -360,8 +360,3 @@ export default function DashboardPage() {
   );
 
     
-
-
-
-
-
