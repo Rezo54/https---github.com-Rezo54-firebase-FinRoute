@@ -9,8 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Bot, Loader2, Sparkles, Percent } from "lucide-react";
+import { Bot, Loader2, Sparkles, Percent, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 const initialState = {
   message: "",
@@ -81,46 +83,77 @@ export function FinancialPlanForm({ onPlanGenerated, plan }: FinancialPlanFormPr
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             <div className="space-y-2">
-              <Label htmlFor="netWorth" className="text-base">Net Worth</Label>
-              <Input id="netWorth" name="netWorth" type="number" placeholder="Assets minus liabilities" />
-              {state.errors?.netWorth && <p className="text-sm font-medium text-destructive">{state.errors.netWorth[0]}</p>}
-            </div>
-             <div className="space-y-2">
-              <Label htmlFor="savingsRate" className="text-base">Savings Rate</Label>
-               <div className="relative">
-                <Input id="savingsRate" name="savingsRate" type="number" placeholder="e.g., 20" className="pr-8" />
-                <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <TooltipProvider>
+          <form action={formAction} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Label htmlFor="netWorth" className="text-base">Net Worth</Label>
+                   <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Your total assets (cash, investments, property) minus your total liabilities (debts, loans).</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <Input id="netWorth" name="netWorth" type="number" placeholder="Assets minus liabilities" />
+                {state.errors?.netWorth && <p className="text-sm font-medium text-destructive">{state.errors.netWorth[0]}</p>}
               </div>
-              {state.errors?.savingsRate && <p className="text-sm font-medium text-destructive">{state.errors.savingsRate[0]}</p>}
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Label htmlFor="savingsRate" className="text-base">Savings Rate</Label>
+                   <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>The percentage of your net income that you save each month.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="relative">
+                  <Input id="savingsRate" name="savingsRate" type="number" placeholder="e.g., 20" className="pr-8" />
+                  <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                </div>
+                {state.errors?.savingsRate && <p className="text-sm font-medium text-destructive">{state.errors.savingsRate[0]}</p>}
+              </div>
+              <div className="space-y-2">
+                 <div className="flex items-center gap-1.5">
+                  <Label htmlFor="totalDebt" className="text-base">Current Total Debt</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>The total amount of money you owe, including loans, credit card balances, etc.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <Input id="totalDebt" name="totalDebt" type="number" placeholder="Loans, credit cards, etc." />
+                {state.errors?.totalDebt && <p className="text-sm font-medium text-destructive">{state.errors.totalDebt[0]}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="monthlyNetSalary" className="text-base">Monthly Net Salary</Label>
+                <Input id="monthlyNetSalary" name="monthlyNetSalary" type="number" placeholder="Salary after taxes" />
+                {state.errors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{state.errors.monthlyNetSalary[0]}</p>}
+              </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="totalDebt" className="text-base">Current Total Debt</Label>
-              <Input id="totalDebt" name="totalDebt" type="number" placeholder="Loans, credit cards, etc." />
-              {state.errors?.totalDebt && <p className="text-sm font-medium text-destructive">{state.errors.totalDebt[0]}</p>}
+              <Label htmlFor="goals" className="text-base">Your Financial Goals</Label>
+              <Textarea
+                id="goals"
+                name="goals"
+                placeholder="e.g., Retire by 60, buy a house in 5 years, save for child's education..."
+                className="min-h-[100px]"
+              />
+              {state.errors?.goals && <p className="text-sm font-medium text-destructive">{state.errors.goals[0]}</p>}
             </div>
-             <div className="space-y-2">
-              <Label htmlFor="monthlyNetSalary" className="text-base">Monthly Net Salary</Label>
-              <Input id="monthlyNetSalary" name="monthlyNetSalary" type="number" placeholder="Salary after taxes" />
-               {state.errors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{state.errors.monthlyNetSalary[0]}</p>}
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="goals" className="text-base">Your Financial Goals</Label>
-            <Textarea 
-              id="goals" 
-              name="goals" 
-              placeholder="e.g., Retire by 60, buy a house in 5 years, save for child's education..." 
-              className="min-h-[100px]"
-            />
-            {state.errors?.goals && <p className="text-sm font-medium text-destructive">{state.errors.goals[0]}</p>}
-          </div>
 
-          <SubmitButton />
-        </form>
-
+            <SubmitButton />
+          </form>
+        </TooltipProvider>
         {plan && (
           <div className="mt-8 rounded-lg border bg-muted/20 p-6">
             <h3 className="font-headline text-xl font-semibold mb-4 text-foreground">Your Personalized Plan</h3>
