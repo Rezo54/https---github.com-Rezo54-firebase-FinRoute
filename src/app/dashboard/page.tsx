@@ -65,7 +65,7 @@ function SubmitButton() {
 
 
 export default function DashboardPage() {
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState('ZAR');
   const [planData, setPlanData] = useState<PlanData | null>(null);
 
   const [netWorth, setNetWorth] = useState<number | null>(null);
