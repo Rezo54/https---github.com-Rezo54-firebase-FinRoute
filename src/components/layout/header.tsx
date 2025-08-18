@@ -37,6 +37,12 @@ export function Header() {
               <DropdownMenuItem onSelect={() => setCurrency('EUR')}>EUR</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setCurrency('JPY')}>JPY</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setCurrency('GBP')}>GBP</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setCurrency('NGN')}>NGN</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setCurrency('ZAR')}>ZAR</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setCurrency('KES')}>KES</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setCurrency('CNY')}>CNY</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setCurrency('INR')}>INR</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setCurrency('SGD')}>SGD</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <Avatar>
