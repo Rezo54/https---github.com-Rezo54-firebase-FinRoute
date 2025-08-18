@@ -226,7 +226,7 @@ export default function DashboardPage() {
                      </div>
                      <CardDescription>This information helps the AI understand your overall financial health.</CardDescription>
                    </CardHeader>
-                   <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                   <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 items-start">
                       <div className="space-y-2">
                           <Label htmlFor="netWorth" className="flex items-center gap-1">Net Worth
                             <Tooltip>
@@ -360,5 +360,6 @@ export default function DashboardPage() {
   );
 
     
+
 
 
