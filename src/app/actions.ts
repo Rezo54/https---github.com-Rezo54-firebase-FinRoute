@@ -11,7 +11,10 @@ const goalSchema = z.object({
   targetAmount: z.coerce.number().min(1, "Target amount must be greater than 0."),
   currentAmount: z.coerce.number().min(0, "Current amount must be a positive number."),
   targetDate: z.string().min(1, "Target date is required."),
-}).refine(data => data.currentAmount <= data.targetAmount, {
+}).refine(data => {
+    if(data.currentAmount === null || data.targetAmount === null) return true;
+    return data.currentAmount <= data.targetAmount;
+}, {
   message: "Current amount cannot be greater than target amount.",
   path: ["currentAmount"],
 });
@@ -21,7 +24,7 @@ const formSchema = z.object({
   netWorth: z.coerce.number().min(0, "Net worth must be a positive number."),
   savingsRate: z.coerce.number().min(0, "Savings rate must be a positive number.").max(100, "Savings rate cannot exceed 100."),
   totalDebt: z.coerce.number().min(0, "Total debt must be a positive number."),
-  monthlyNetSalary: z.coerce.number().min(0, "Monthly salary must be a positive number."),
+  monthlyNetSalary: z.coerce.number().min(1, "Monthly salary must be a positive number."),
   goals: z.array(goalSchema).min(1, "Please add at least one financial goal."),
   currency: z.string(),
 });
@@ -165,5 +168,3 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
     };
   }
 }
-
-    

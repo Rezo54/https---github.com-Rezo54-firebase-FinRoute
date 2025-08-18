@@ -93,6 +93,7 @@ export default function DashboardPage() {
   const { toast } = useToast();
   
   const uniqueId = useId();
+
   useEffect(() => {
     // Generate a unique ID for the initial goal on the client side to avoid hydration errors
     if (formGoals.length === 0) {
@@ -106,7 +107,8 @@ export default function DashboardPage() {
   };
 
   const addGoal = () => {
-    setFormGoals([...formGoals, { id: `goal-${uniqueId}-${formGoals.length}`, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
+    const newGoalId = `goal-${uniqueId}-${formGoals.length}`;
+    setFormGoals([...formGoals, { id: newGoalId, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
   };
 
   const removeGoal = (id: string) => {
@@ -138,7 +140,7 @@ export default function DashboardPage() {
       setSavingsRate(null);
       setTotalDebt(null);
       setMonthlyNetSalary(null);
-      setFormGoals([{ id: `goal-${uniqueId}-0`, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
+      setFormGoals([{ id: `goal-${uniqueId}-reset-${Date.now()}`, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
 
     } else if (state.message && state.message !== 'Invalid form data.' && state.message !== 'success') {
       toast({
@@ -147,7 +149,8 @@ export default function DashboardPage() {
         description: state.message,
       });
     }
-  }, [state, toast, uniqueId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, toast]);
 
   const handleGoalSelect = (goal: PlanGoal) => {
     setSelectedGoal(goal);
@@ -297,7 +300,7 @@ export default function DashboardPage() {
 
                   <div className="space-y-4">
                      <Label className="text-base font-semibold">Your Financial Goals</Label>
-                     {formErrors?.goals && <p className="text-sm font-medium text-destructive">{formErrors.goals.toString()}</p>}
+                     {formErrors?.goals && <p className="text-sm font-medium text-destructive">{typeof formErrors.goals === 'string' ? formErrors.goals : formErrors.goals[0]}</p>}
                      {formGoals.map((goal) => (
                        <div key={goal.id} className="p-4 border rounded-lg bg-muted/50 relative space-y-4">
                          {formGoals.length > 1 && (
@@ -358,6 +361,4 @@ export default function DashboardPage() {
       />
     </div>
   );
-
     
-
