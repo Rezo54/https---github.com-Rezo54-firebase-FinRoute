@@ -22,6 +22,7 @@ const formSchema = z.object({
   totalDebt: z.coerce.number().min(0, "Total debt must be a positive number."),
   monthlyNetSalary: z.coerce.number().min(0, "Monthly salary must be a positive number."),
   goals: z.array(goalSchema).min(1, "Please add at least one financial goal."),
+  currency: z.string(),
 });
 
 type State = {
@@ -100,6 +101,7 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
       totalDebt: formData.get('totalDebt'),
       monthlyNetSalary: formData.get('monthlyNetSalary'),
       goals: goalsData,
+      currency: formData.get('currency'),
     };
 
     const validatedFields = formSchema.safeParse(rawData);
@@ -113,7 +115,7 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
       };
     }
 
-    const { netWorth, savingsRate, totalDebt, monthlyNetSalary, goals } = validatedFields.data;
+    const { netWorth, savingsRate, totalDebt, monthlyNetSalary, goals, currency } = validatedFields.data;
     
     // Calculate Debt-to-Income Ratio
     const debtToIncome = monthlyNetSalary > 0 ? Math.round((totalDebt / monthlyNetSalary) * 100) : 0;
@@ -121,8 +123,13 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
     // TODO: Get age from user session
     const age = 35;
 
+    const currencySymbols: { [key: string]: string } = {
+      USD: "$", EUR: "€", JPY: "¥", GBP: "£", NGN: "₦", ZAR: "R", KES: "KSh", CNY: "¥", INR: "₹", SGD: "S$",
+    };
+
     const input: FinancialPlanInput = {
       age: age,
+      currency: currencySymbols[currency] || currency,
       goals: goals,
       keyMetrics: {
         netWorth: netWorth,

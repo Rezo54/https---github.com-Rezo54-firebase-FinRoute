@@ -21,6 +21,7 @@ const GoalSchema = z.object({
 
 const FinancialPlanInputSchema = z.object({
   age: z.number().describe("The user's current age."),
+  currency: z.string().describe('The currency symbol or code (e.g., $, €, R).'),
   goals: z.array(GoalSchema).describe('An array of the users financial goals.'),
   keyMetrics: z.object({
     netWorth: z.number().describe("The user's calculated net worth."),
@@ -45,19 +46,19 @@ const prompt = ai.definePrompt({
   name: 'financialPlanGeneratorPrompt',
   input: {schema: FinancialPlanInputSchema},
   output: {schema: FinancialPlanOutputSchema},
-  prompt: `You are an expert financial advisor. Your task is to generate a personalized, actionable financial plan based on the user's data. The plan should be in Markdown format.
+  prompt: `You are an expert financial advisor. Your task is to generate a personalized, actionable financial plan based on the user's data. The plan should be in Markdown format. Use the provided currency symbol for all monetary values.
 
   **User Profile:**
   - **Age:** {{{age}}}
-  - **Net Worth:** {{{keyMetrics.netWorth}}}
+  - **Net Worth:** {{{currency}}}{{{keyMetrics.netWorth}}}
   - **Savings Rate:** {{{keyMetrics.savingsRate}}}%
   - **Debt-to-Income Ratio:** {{{keyMetrics.debtToIncome}}}%
 
   **User's Financial Goals:**
   {{#each goals}}
   - **Goal:** {{name}}
-    - **Target Amount:** {{targetAmount}}
-    - **Current Savings:** {{currentAmount}}
+    - **Target Amount:** {{{../currency}}}{{targetAmount}}
+    - **Current Savings:** {{{../currency}}}{{currentAmount}}
     - **Target Date:** {{targetDate}}
   {{/each}}
 

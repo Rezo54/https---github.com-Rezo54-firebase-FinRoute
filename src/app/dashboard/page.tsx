@@ -16,7 +16,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Bot, Loader2, Sparkles, Percent, Info, PlusCircle, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { format, parseISO } from 'date-fns';
 
 type Goal = {
   id: number;
@@ -168,6 +167,8 @@ export default function DashboardPage() {
                        targetDate: goal.targetDate,
                      })} />
                    ))}
+                   <input type="hidden" name="currency" value={currency} />
+
 
                   <div className="space-y-4">
                     <Label className="text-base font-semibold">Your Key Metrics</Label>
