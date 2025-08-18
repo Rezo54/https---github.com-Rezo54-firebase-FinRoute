@@ -12,13 +12,16 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
+const GoalSchema = z.object({
+  name: z.string().describe('The name of the financial goal.'),
+  targetAmount: z.number().describe('The target amount to save for the goal.'),
+  currentAmount: z.number().describe('The amount already saved for the goal.'),
+  targetDate: z.string().describe('The target date to achieve the goal (e.g., YYYY-MM-DD).'),
+});
+
 const FinancialPlanInputSchema = z.object({
   age: z.number().describe("The user's current age."),
-  goals: z
-    .string()
-    .describe(
-      'A description of the users financial goals, such as retirement, buying a house, etc.'
-    ),
+  goals: z.array(GoalSchema).describe('An array of the users financial goals.'),
   keyMetrics: z.object({
     netWorth: z.number().describe("The user's calculated net worth."),
     savingsRate: z.number().describe("The user's savings rate as a percentage."),
@@ -29,7 +32,8 @@ export type FinancialPlanInput = z.infer<typeof FinancialPlanInputSchema>;
 
 
 const FinancialPlanOutputSchema = z.object({
-  plan: z.string().describe('A personalized financial plan with recommendations.'),
+  plan: z.string().describe('A personalized financial plan with recommendations, formatted as markdown.'),
+  goals: z.array(GoalSchema).describe('The user\'s goals, returned as they were provided.'),
 });
 export type FinancialPlanOutput = z.infer<typeof FinancialPlanOutputSchema>;
 
@@ -41,19 +45,36 @@ const prompt = ai.definePrompt({
   name: 'financialPlanGeneratorPrompt',
   input: {schema: FinancialPlanInputSchema},
   output: {schema: FinancialPlanOutputSchema},
-  prompt: `You are an expert financial advisor.
+  prompt: `You are an expert financial advisor. Your task is to generate a personalized, actionable financial plan based on the user's data. The plan should be in Markdown format.
 
-  Based on the user's financial goals and key metrics, generate a personalized financial plan with recommendations for budgeting, saving, and investing.
+  **User Profile:**
+  - **Age:** {{{age}}}
+  - **Net Worth:** {{{keyMetrics.netWorth}}}
+  - **Savings Rate:** {{{keyMetrics.savingsRate}}}%
+  - **Debt-to-Income Ratio:** {{{keyMetrics.debtToIncome}}}%
 
-  User's Current Age: {{{age}}}
-  User's Goals: {{{goals}}}
+  **User's Financial Goals:**
+  {{#each goals}}
+  - **Goal:** {{name}}
+    - **Target Amount:** {{targetAmount}}
+    - **Current Savings:** {{currentAmount}}
+    - **Target Date:** {{targetDate}}
+  {{/each}}
 
-  Key Metrics:
-  - Net Worth: {{{keyMetrics.netWorth}}}
-  - Savings Rate: {{{keyMetrics.savingsRate}}}%
-  - Debt-to-Income Ratio: {{{keyMetrics.debtToIncome}}}%
+  **Instructions:**
+  1.  **Introduction:** Start with a brief, encouraging overview of the user's financial situation.
+  2.  **Goal Analysis & Savings Plan:** For EACH goal, provide a detailed analysis.
+      - Calculate the remaining amount needed.
+      - Calculate the required monthly savings to meet the goal by the target date.
+      - Provide concrete advice on how to achieve this monthly saving. Suggest specific budgeting strategies.
+      - Recommend suitable short-term, low-risk investment options (like HYSAs or short-term CDs) for savings, explaining why.
+  3.  **Overall Financial Health:**
+      - Analyze the key metrics (Net Worth, Savings Rate, DTI).
+      - Provide specific, actionable advice for improving these metrics. For a high DTI ratio, suggest debt repayment strategies like the snowball or avalanche method.
+  4.  **Actionable Steps:** Create a clear, numbered list of immediate actions the user should take.
+  5.  **Disclaimer:** Include a standard disclaimer that this is not financial advice and the user should consult a qualified professional.
 
-  Provide a comprehensive, actionable financial plan based on this information. Be mindful of the user's age when providing recommendations, especially for long-term goals like retirement.
+  **Important:** Be mindful of the user's age. A 61-year-old user with a goal to retire at 60 is impossible. You must point this out clearly and gently, suggesting they adjust the goal. The tone should be professional, encouraging, and clear.
   `,
 });
 
@@ -65,6 +86,13 @@ const financialPlanGeneratorFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output) {
+      throw new Error("Failed to generate financial plan.");
+    }
+    // The AI returns the plan and the goals. We just need to forward them.
+    return {
+      plan: output.plan,
+      goals: input.goals, // Pass the original goals through for UI consistency
+    };
   }
 );

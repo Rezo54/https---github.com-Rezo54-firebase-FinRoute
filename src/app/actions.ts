@@ -5,25 +5,35 @@ import { financialPlanGenerator, type FinancialPlanInput, type FinancialPlanOutp
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
 
+const goalSchema = z.object({
+  name: z.string().min(1, "Goal name is required."),
+  targetAmount: z.coerce.number().min(1, "Target amount must be greater than 0."),
+  currentAmount: z.coerce.number().min(0, "Current amount must be a positive number."),
+  targetDate: z.string().min(1, "Target date is required."),
+}).refine(data => data.currentAmount <= data.targetAmount, {
+  message: "Current amount cannot be greater than target amount.",
+  path: ["currentAmount"],
+});
+
+
 const formSchema = z.object({
-  goals: z.string().min(10, "Please describe your financial goals in more detail."),
   netWorth: z.coerce.number().min(0, "Net worth must be a positive number."),
   savingsRate: z.coerce.number().min(0, "Savings rate must be a positive number.").max(100, "Savings rate cannot exceed 100."),
   totalDebt: z.coerce.number().min(0, "Total debt must be a positive number."),
   monthlyNetSalary: z.coerce.number().min(0, "Monthly salary must be a positive number."),
+  goals: z.array(goalSchema).min(1, "Please add at least one financial goal."),
 });
 
 type State = {
   message: string;
-  errors?: {
-    goals?: string[];
-    netWorth?: string[];
-    savingsRate?: string[];
-    totalDebt?: string[];
-    monthlyNetSalary?: string[];
-  } | null;
+  errors?: z.ZodError<any>['formErrors'] | null;
   plan?: string | null;
-  goals?: any[] | null;
+  goals?: {
+    name: string;
+    targetAmount: number;
+    currentAmount: number;
+    targetDate: string;
+  }[] | null;
 }
 
 const loginSchema = z.object({
@@ -83,18 +93,22 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
 
 export async function generatePlan(prevState: State, formData: FormData): Promise<State> {
   try {
-    const validatedFields = formSchema.safeParse({
-      goals: formData.get('goals'),
+    const goalsData = formData.getAll('goals').map(goal => JSON.parse(goal as string));
+    const rawData = {
       netWorth: formData.get('netWorth'),
       savingsRate: formData.get('savingsRate'),
       totalDebt: formData.get('totalDebt'),
       monthlyNetSalary: formData.get('monthlyNetSalary'),
-    });
+      goals: goalsData,
+    };
 
+    const validatedFields = formSchema.safeParse(rawData);
+    
     if (!validatedFields.success) {
+      console.log(validatedFields.error.flatten());
       return {
         message: 'Invalid form data.',
-        errors: validatedFields.error.flatten().fieldErrors,
+        errors: validatedFields.error.flatten(),
         plan: null,
       };
     }
@@ -131,6 +145,7 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
       message: 'success',
       errors: null,
       plan: result.plan,
+      goals: result.goals,
     };
   } catch (error) {
     console.error(error);
