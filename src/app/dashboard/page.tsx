@@ -110,7 +110,12 @@ function Dashboard() {
   
   const handleAddGoal = () => {
     if (newGoal.name && newGoal.targetAmount > 0 && newGoal.targetDate) {
-      setFormGoals([...formGoals, { ...newGoal, id: Date.now().toString() }]);
+      const goalToAdd = { 
+        ...newGoal, 
+        id: Date.now().toString(),
+        description: newGoal.description === '' ? undefined : newGoal.description,
+      };
+      setFormGoals([...formGoals, goalToAdd]);
       setNewGoal({ name: '', targetAmount: 0, currentAmount: 0, targetDate: '', description: '' });
     } else {
       toast({
