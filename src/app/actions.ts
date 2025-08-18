@@ -23,11 +23,6 @@ type State = {
     monthlyNetSalary?: string[];
   } | null;
   plan?: string | null;
-  keyMetrics?: {
-    netWorth: number;
-    savingsRate: number;
-    debtToIncome: number;
-  } | null,
   goals?: any[] | null;
 }
 
@@ -130,7 +125,6 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
       message: 'success',
       errors: null,
       plan: result.plan,
-      keyMetrics: input.keyMetrics,
       goals: result.goals,
     };
   } catch (error) {

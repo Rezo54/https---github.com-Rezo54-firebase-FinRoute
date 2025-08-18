@@ -10,8 +10,8 @@ const currencySymbols: { [key: string]: string } = {
 interface KeyMetricsProps {
   currency: string;
   data: {
-    netWorth: number;
-    savingsRate: number;
+    netWorth: number | null;
+    savingsRate: number | null;
     debtToIncome: number;
   } | null;
 }
@@ -27,39 +27,14 @@ export function KeyMetrics({ currency, data }: KeyMetricsProps) {
       maximumFractionDigits: 2,
     }).format(value);
   };
-
-  if (!data) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-headline">Key Metrics</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-6">
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-12 w-12 rounded-lg" />
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-[100px]" />
-              <Skeleton className="h-6 w-[150px]" />
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-12 w-12 rounded-lg" />
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-[100px]" />
-              <Skeleton className="h-6 w-[150px]" />
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-12 w-12 rounded-lg" />
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-[100px]" />
-              <Skeleton className="h-6 w-[150px]" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
+  
+  const renderMetric = (value: number | null, formatter: (val: number) => string | number, unit?: string) => {
+    if (value === null || isNaN(value)) {
+       return <Skeleton className="h-6 w-[150px]" />;
+    }
+    return <p className="text-2xl font-bold">{formatter(value)}{unit}</p>;
   }
+
 
   return (
     <Card>
@@ -73,7 +48,7 @@ export function KeyMetrics({ currency, data }: KeyMetricsProps) {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Net Worth</p>
-            <p className="text-2xl font-bold">{formatCurrency(data.netWorth)}</p>
+            {renderMetric(data?.netWorth ?? null, formatCurrency)}
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -82,7 +57,7 @@ export function KeyMetrics({ currency, data }: KeyMetricsProps) {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Savings Rate</p>
-            <p className="text-2xl font-bold">{data.savingsRate}%</p>
+            {renderMetric(data?.savingsRate ?? null, (val) => val, '%')}
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -91,7 +66,7 @@ export function KeyMetrics({ currency, data }: KeyMetricsProps) {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Debt-to-Income</p>
-            <p className="text-2xl font-bold">{data.debtToIncome}%</p>
+             {renderMetric(data?.debtToIncome ?? null, (val) => val, '%')}
           </div>
         </div>
       </CardContent>

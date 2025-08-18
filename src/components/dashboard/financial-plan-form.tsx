@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Dispatch, SetStateAction } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { generatePlan } from "@/app/actions";
 import { Button } from "@/components/ui/button";
@@ -44,9 +44,32 @@ function SubmitButton() {
 interface FinancialPlanFormProps {
   onPlanGenerated: (data: any) => void;
   plan: string | null;
+  netWorth: number | null;
+  setNetWorth: Dispatch<SetStateAction<number | null>>;
+  savingsRate: number | null;
+  setSavingsRate: Dispatch<SetStateAction<number | null>>;
+  totalDebt: number | null;
+  setTotalDebt: Dispatch<SetStateAction<number | null>>;
+  monthlyNetSalary: number | null;
+  setMonthlyNetSalary: Dispatch<SetStateAction<number | null>>;
+  goalsInput: string;
+  setGoalsInput: Dispatch<SetStateAction<string>>;
 }
 
-export function FinancialPlanForm({ onPlanGenerated, plan }: FinancialPlanFormProps) {
+export function FinancialPlanForm({ 
+  onPlanGenerated, 
+  plan,
+  netWorth,
+  setNetWorth,
+  savingsRate,
+  setSavingsRate,
+  totalDebt,
+  setTotalDebt,
+  monthlyNetSalary,
+  setMonthlyNetSalary,
+  goalsInput,
+  setGoalsInput
+}: FinancialPlanFormProps) {
   const [state, formAction] = useFormState(generatePlan, initialState);
   const { toast } = useToast();
 
@@ -57,7 +80,6 @@ export function FinancialPlanForm({ onPlanGenerated, plan }: FinancialPlanFormPr
         description: "Your personalized financial plan is ready below.",
       });
       onPlanGenerated({
-        keyMetrics: state.keyMetrics,
         goals: state.goals,
         plan: state.plan,
       });
@@ -98,7 +120,7 @@ export function FinancialPlanForm({ onPlanGenerated, plan }: FinancialPlanFormPr
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <Input id="netWorth" name="netWorth" type="number" placeholder="Assets minus liabilities" />
+                <Input id="netWorth" name="netWorth" type="number" placeholder="Assets minus liabilities" value={netWorth ?? ''} onChange={(e) => setNetWorth(e.target.value === '' ? null : Number(e.target.value))} />
                 {state.errors?.netWorth && <p className="text-sm font-medium text-destructive">{state.errors.netWorth[0]}</p>}
               </div>
               <div className="space-y-2">
@@ -114,7 +136,7 @@ export function FinancialPlanForm({ onPlanGenerated, plan }: FinancialPlanFormPr
                   </Tooltip>
                 </div>
                 <div className="relative">
-                  <Input id="savingsRate" name="savingsRate" type="number" placeholder="e.g., 20" className="pr-8" />
+                  <Input id="savingsRate" name="savingsRate" type="number" placeholder="e.g., 20" className="pr-8" value={savingsRate ?? ''} onChange={(e) => setSavingsRate(e.target.value === '' ? null : Number(e.target.value))} />
                   <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 </div>
                 {state.errors?.savingsRate && <p className="text-sm font-medium text-destructive">{state.errors.savingsRate[0]}</p>}
@@ -131,12 +153,12 @@ export function FinancialPlanForm({ onPlanGenerated, plan }: FinancialPlanFormPr
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <Input id="totalDebt" name="totalDebt" type="number" placeholder="Loans, credit cards, etc." />
+                <Input id="totalDebt" name="totalDebt" type="number" placeholder="Loans, credit cards, etc." value={totalDebt ?? ''} onChange={(e) => setTotalDebt(e.target.value === '' ? null : Number(e.target.value))} />
                 {state.errors?.totalDebt && <p className="text-sm font-medium text-destructive">{state.errors.totalDebt[0]}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="monthlyNetSalary" className="text-base">Monthly Net Salary</Label>
-                <Input id="monthlyNetSalary" name="monthlyNetSalary" type="number" placeholder="Salary after taxes" />
+                <Input id="monthlyNetSalary" name="monthlyNetSalary" type="number" placeholder="Salary after taxes" value={monthlyNetSalary ?? ''} onChange={(e) => setMonthlyNetSalary(e.target.value === '' ? null : Number(e.target.value))} />
                 {state.errors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{state.errors.monthlyNetSalary[0]}</p>}
               </div>
             </div>
@@ -147,6 +169,8 @@ export function FinancialPlanForm({ onPlanGenerated, plan }: FinancialPlanFormPr
                 name="goals"
                 placeholder="e.g., Retire by 60, buy a house in 5 years, save for child's education..."
                 className="min-h-[100px]"
+                value={goalsInput}
+                onChange={(e) => setGoalsInput(e.target.value)}
               />
               {state.errors?.goals && <p className="text-sm font-medium text-destructive">{state.errors.goals[0]}</p>}
             </div>
