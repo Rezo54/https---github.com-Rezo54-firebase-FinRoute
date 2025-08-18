@@ -25,8 +25,20 @@ const FinancialPlanInputSchema = z.object({
 });
 export type FinancialPlanInput = z.infer<typeof FinancialPlanInputSchema>;
 
+const GoalSchema = z.object({
+  name: z.string().describe("The name of the financial goal."),
+  targetAmount: z.number().describe("The target amount for the goal."),
+  currentAmount: z.number().describe("The current amount saved for the goal."),
+});
+
 const FinancialPlanOutputSchema = z.object({
   plan: z.string().describe('A personalized financial plan with recommendations.'),
+  keyMetrics: z.object({
+    netWorth: z.number().describe("The user's calculated net worth."),
+    savingsRate: z.number().describe("The user's savings rate as a percentage."),
+    debtToIncome: z.number().describe("The user's debt-to-income ratio as a percentage."),
+  }),
+  goals: z.array(GoalSchema).describe("A list of the user's financial goals with their progress."),
 });
 export type FinancialPlanOutput = z.infer<typeof FinancialPlanOutputSchema>;
 
@@ -42,11 +54,16 @@ const prompt = ai.definePrompt({
 
   Based on the user's financial data and goals, generate a personalized financial plan with recommendations for budgeting, saving, and investing.
 
+  Analyze the provided financial data to calculate the user's net worth, savings rate (as a percentage), and debt-to-income ratio (as a percentage).
+
+  Also, identify the user's financial goals from their description. For each goal, determine the target amount and the current amount saved.
+
+  Return the calculated metrics and the list of goals in the structured output, in addition to the written financial plan.
+
   Financial Data: {{{financialData}}}
 
   Goals: {{{goals}}}
-
-  Financial Plan:`, // Provide clear instructions and context to the AI model.
+  `,
 });
 
 const financialPlanGeneratorFlow = ai.defineFlow(

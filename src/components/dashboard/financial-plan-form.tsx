@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Bot, Loader2, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import type { FinancialPlanOutput } from "@/ai/flows/financial-plan-generator";
 
 const initialState = {
   message: "",
@@ -36,16 +37,22 @@ function SubmitButton() {
   );
 }
 
-export function FinancialPlanForm() {
+interface FinancialPlanFormProps {
+  onPlanGenerated: (data: FinancialPlanOutput) => void;
+  plan: string | null;
+}
+
+export function FinancialPlanForm({ onPlanGenerated, plan }: FinancialPlanFormProps) {
   const [state, formAction] = useFormState(generatePlan, initialState);
   const { toast } = useToast();
 
   useEffect(() => {
-    if (state.message === "success") {
+    if (state.message === "success" && state.plan) {
       toast({
         title: "Plan Generated!",
         description: "Your personalized financial plan is ready below.",
       });
+      onPlanGenerated(state.plan);
     } else if (state.message && state.message !== 'Invalid form data.') {
       toast({
         variant: "destructive",
@@ -53,7 +60,7 @@ export function FinancialPlanForm() {
         description: state.message,
       });
     }
-  }, [state, toast]);
+  }, [state, toast, onPlanGenerated]);
 
   return (
     <Card className="col-span-1 lg:col-span-3">
@@ -86,10 +93,10 @@ export function FinancialPlanForm() {
           <SubmitButton />
         </form>
 
-        {state.plan && (
+        {plan && (
           <div className="mt-8 rounded-lg border bg-muted/20 p-6">
             <h3 className="font-headline text-xl font-semibold mb-4 text-foreground">Your Personalized Plan</h3>
-            <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap">{state.plan}</div>
+            <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap">{plan}</div>
           </div>
         )}
       </CardContent>

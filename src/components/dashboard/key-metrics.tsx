@@ -3,20 +3,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Percent, PiggyBank } from "lucide-react";
 
 const currencySymbols: { [key: string]: string } = {
-  USD: "$",
-  EUR: "€",
-  JPY: "¥",
-  GBP: "£",
-  NGN: "₦",
-  ZAR: "R",
-  KES: "KSh",
-  CNY: "¥",
-  INR: "₹",
-  SGD: "S$",
+  USD: "$", EUR: "€", JPY: "¥", GBP: "£", NGN: "₦", ZAR: "R", KES: "KSh", CNY: "¥", INR: "₹", SGD: "S$",
 };
 
-export function KeyMetrics({ currency }: { currency: string }) {
+interface KeyMetricsProps {
+  currency: string;
+  data: {
+    netWorth: number;
+    savingsRate: number;
+    debtToIncome: number;
+  };
+}
+
+export function KeyMetrics({ currency, data }: KeyMetricsProps) {
   const symbol = currencySymbols[currency] || '$';
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  };
 
   return (
     <Card>
@@ -30,7 +39,7 @@ export function KeyMetrics({ currency }: { currency: string }) {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Net Worth</p>
-            <p className="text-2xl font-bold">{symbol}250,430.00</p>
+            <p className="text-2xl font-bold">{formatCurrency(data.netWorth)}</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -39,7 +48,7 @@ export function KeyMetrics({ currency }: { currency: string }) {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Savings Rate</p>
-            <p className="text-2xl font-bold">25%</p>
+            <p className="text-2xl font-bold">{data.savingsRate}%</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -48,7 +57,7 @@ export function KeyMetrics({ currency }: { currency: string }) {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Debt-to-Income</p>
-            <p className="text-2xl font-bold">15%</p>
+            <p className="text-2xl font-bold">{data.debtToIncome}%</p>
           </div>
         </div>
       </CardContent>

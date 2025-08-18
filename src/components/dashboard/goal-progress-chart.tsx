@@ -1,24 +1,34 @@
 "use client"
 
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 
-const chartData = [
-  { goal: "House", saved: 15000, target: 50000 },
-  { goal: "Retire", saved: 75000, target: 500000 },
-  { goal: "Car", saved: 8000, target: 25000 },
-  { goal: "Vacation", saved: 2500, target: 5000 },
-];
+const currencySymbols: { [key: string]: string } = {
+  USD: "$", EUR: "€", JPY: "¥", GBP: "£", NGN: "₦", ZAR: "R", KES: "KSh", CNY: "¥", INR: "₹", SGD: "S$",
+};
 
 const chartConfig = {
-  saved: {
+  currentAmount: {
     label: "Saved",
     color: "hsl(var(--chart-1))",
   },
 } satisfies ChartConfig
 
-export function GoalProgressChart() {
+interface Goal {
+  name: string;
+  currentAmount: number;
+  targetAmount: number;
+}
+
+interface GoalProgressChartProps {
+  data: Goal[];
+  currency: string;
+}
+
+export function GoalProgressChart({ data, currency }: GoalProgressChartProps) {
+  const symbol = currencySymbols[currency] || '$';
+
   return (
     <Card className="lg:col-span-2">
       <CardHeader>
@@ -29,29 +39,30 @@ export function GoalProgressChart() {
         <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
           <BarChart
             accessibilityLayer
-            data={chartData}
+            data={data}
             layout="vertical"
             margin={{ left: 10, right: 10 }}
           >
             <CartesianGrid horizontal={false} />
             <YAxis
-              dataKey="goal"
+              dataKey="name"
               type="category"
               tickLine={false}
               tickMargin={10}
               axisLine={false}
               className="text-muted-foreground"
             />
-            <XAxis dataKey="saved" type="number" hide />
+            <XAxis dataKey="currentAmount" type="number" hide />
             <ChartTooltip
               cursor={false}
               content={<ChartTooltipContent
-                formatter={(value, name, item) => (
-                  `${Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value as number)} / ${Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.payload.target)}`
-                )}
+                formatter={(value, name, item) => {
+                  const payload = item.payload as Goal;
+                  return `${new Intl.NumberFormat('en-US', { style: 'currency', currency: currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value as number)} / ${new Intl.NumberFormat('en-US', { style: 'currency', currency: currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(payload.targetAmount)}`
+                }}
               />}
             />
-            <Bar dataKey="saved" layout="vertical" fill="var(--color-saved)" radius={4} />
+            <Bar dataKey="currentAmount" layout="vertical" fill="var(--color-currentAmount)" radius={4} />
           </BarChart>
         </ChartContainer>
       </CardContent>

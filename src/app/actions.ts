@@ -1,7 +1,7 @@
 
 'use server';
 
-import { financialPlanGenerator, type FinancialPlanInput } from '@/ai/flows/financial-plan-generator';
+import { financialPlanGenerator, type FinancialPlanInput, type FinancialPlanOutput } from '@/ai/flows/financial-plan-generator';
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
 
@@ -16,7 +16,7 @@ type State = {
     goals?: string[];
     financialData?: string[];
   } | null;
-  plan?: string | null;
+  plan?: FinancialPlanOutput | null;
 }
 
 const loginSchema = z.object({
@@ -105,7 +105,7 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
     return {
       message: 'success',
       errors: null,
-      plan: result.plan,
+      plan: result,
     };
   } catch (error) {
     console.error(error);
