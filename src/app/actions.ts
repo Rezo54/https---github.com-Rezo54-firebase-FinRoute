@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { redirect } from 'next/navigation';
 
 const goalSchema = z.object({
+  id: z.string(),
   name: z.string().min(1, "Goal name is required."),
   description: z.string().optional(),
   targetAmount: z.coerce.number().min(1, "Target amount must be greater than 0."),
