@@ -68,7 +68,7 @@ const prompt = ai.definePrompt({
       - Calculate the remaining amount needed.
       - Calculate the required monthly savings to meet the goal by the target date.
       - Provide concrete advice on how to achieve this monthly saving. Suggest specific budgeting strategies.
-      - Recommend suitable short-term, low-risk investment options (like HYSAs or short-term CDs) for savings, explaining why.
+      - Recommend suitable short-term, low-risk investment options (like High-Yield Savings Accounts) for savings, explaining why in simple terms. Avoid complex jargon. For example, instead of 'laddering CDs', explain the concept simply.
   3.  **Overall Financial Health:**
       - Analyze the key metrics (Net Worth, Savings Rate, DTI).
       - Provide specific, actionable advice for improving these metrics. For a high DTI ratio, suggest debt repayment strategies like the snowball or avalanche method.
