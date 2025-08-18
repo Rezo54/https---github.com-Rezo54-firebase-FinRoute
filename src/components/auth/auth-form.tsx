@@ -2,7 +2,8 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState, use } from 'react';
+import { useFormStatus } from 'react-dom';
 import { login, signup } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,7 +35,7 @@ export function AuthForm() {
   const isSignUp = mode === 'signup';
 
   const action = isSignUp ? signup : login;
-  const [state, formAction] = useFormState(action, initialState as any);
+  const [state, formAction] = useActionState(action, initialState as any);
 
   return (
     <Card className="w-full max-w-sm">
