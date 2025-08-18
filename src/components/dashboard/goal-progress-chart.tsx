@@ -22,16 +22,19 @@ const chartConfig = {
 
 interface Goal {
   name: string;
-  currentAmount: number | null;
-  targetAmount: number | null;
+  description?: string;
+  currentAmount: number;
+  targetAmount: number;
+  targetDate: string;
 }
 
 interface GoalProgressChartProps {
   data: Goal[];
   currency: string;
+  onGoalSelect: (goal: Goal) => void;
 }
 
-export function GoalProgressChart({ data, currency }: GoalProgressChartProps) {
+export function GoalProgressChart({ data, currency, onGoalSelect }: GoalProgressChartProps) {
   const symbol = currencySymbols[currency] || '$';
 
   const chartData = data.filter(g => g.name && g.targetAmount);
@@ -73,8 +76,8 @@ export function GoalProgressChart({ data, currency }: GoalProgressChartProps) {
                   }}
                 />}
               />
-              <Bar dataKey="targetAmount" layout="vertical" fill="var(--color-targetAmount)" radius={4} background={{ fill: 'hsl(var(--muted) / 0.2)', radius: 4 }}/>
-              <Bar dataKey="currentAmount" layout="vertical" fill="var(--color-currentAmount)" radius={4} />
+              <Bar dataKey="targetAmount" layout="vertical" fill="var(--color-targetAmount)" radius={4} background={{ fill: 'hsl(var(--muted) / 0.2)', radius: 4 }} className="cursor-pointer" onClick={onGoalSelect} />
+              <Bar dataKey="currentAmount" layout="vertical" fill="var(--color-currentAmount)" radius={4} className="cursor-pointer" onClick={onGoalSelect} />
             </BarChart>
           </ChartContainer>
         ) : (

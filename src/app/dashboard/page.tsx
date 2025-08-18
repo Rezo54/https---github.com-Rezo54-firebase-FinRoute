@@ -17,6 +17,7 @@ import { Bot, Loader2, Sparkles, Percent, Info, PlusCircle, Trash2 } from "lucid
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { UpdateGoalDialog } from '@/components/dashboard/update-goal-dialog';
 
 type Goal = {
   id: number;
@@ -27,8 +28,16 @@ type Goal = {
   targetDate: string;
 };
 
+type PlanGoal = {
+    name: string;
+    description?: string;
+    targetAmount: number;
+    currentAmount: number;
+    targetDate: string;
+};
+
 type PlanData = {
-  goals: any[];
+  goals: PlanGoal[];
   plan: string | null;
 };
 
@@ -45,7 +54,10 @@ const initialFormState = {
   goals: null,
 };
 
-const initialGoals: Goal[] = [{ id: 1, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }];
+// A simple client-side ID counter
+let nextId = 1;
+
+const initialGoals: Goal[] = [{ id: nextId++, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }];
 
 
 function SubmitButton() {
@@ -71,6 +83,9 @@ function SubmitButton() {
 export default function DashboardPage() {
   const [currency, setCurrency] = useState('ZAR');
   const [planData, setPlanData] = useState<PlanData | null>(null);
+  
+  const [selectedGoal, setSelectedGoal] = useState<PlanGoal | null>(null);
+  const [isUpdateGoalDialogOpen, setUpdateGoalDialogOpen] = useState(false);
 
   const [netWorth, setNetWorth] = useState<number | null>(null);
   const [savingsRate, setSavingsRate] = useState<number | null>(null);
@@ -87,17 +102,17 @@ export default function DashboardPage() {
   // Effect to add the initial goal form on the client-side to prevent hydration errors
   useEffect(() => {
     if (goals.length === 0) {
-      setGoals(initialGoals);
+      setGoals([{ id: nextId++, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const handleGoalChange = (id: number, field: keyof Omit<Goal, 'id'>, value: string | number | null) => {
     setGoals(goals.map(goal => goal.id === id ? { ...goal, [field]: value } : goal));
   };
 
   const addGoal = () => {
-    // Use a timestamp for a unique ID, ensuring it's unique on the client
-    setGoals([...goals, { id: Date.now(), name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
+    setGoals([...goals, { id: nextId++, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
   };
 
   const removeGoal = (id: number) => {
@@ -131,7 +146,7 @@ export default function DashboardPage() {
       setSavingsRate(null);
       setTotalDebt(null);
       setMonthlyNetSalary(null);
-      setGoals(initialGoals);
+      setGoals([{ id: nextId++, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
 
 
     } else if (state.message && state.message !== 'Invalid form data.' && state.message !== 'success') {
@@ -142,6 +157,25 @@ export default function DashboardPage() {
       });
     }
   }, [state, toast]);
+
+  const handleGoalSelect = (goal: PlanGoal) => {
+    setSelectedGoal(goal);
+    setUpdateGoalDialogOpen(true);
+  };
+  
+  const handleUpdateGoal = (updatedAmount: number) => {
+    if (planData && selectedGoal) {
+      const updatedGoals = planData.goals.map(g => 
+        g.name === selectedGoal.name ? { ...g, currentAmount: updatedAmount } : g
+      );
+      setPlanData({ ...planData, goals: updatedGoals });
+      toast({
+        title: "Goal Updated!",
+        description: `Your savings for "${selectedGoal.name}" have been updated.`,
+      });
+    }
+    setSelectedGoal(null);
+  };
 
   const metricsData: MetricsData = {
     netWorth: netWorth,
@@ -157,7 +191,7 @@ export default function DashboardPage() {
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
         <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
           <KeyMetrics currency={currency} data={planData ? { netWorth: planData.goals.reduce((acc, g) => acc + (g.currentAmount || 0), 0), savingsRate: null, debtToIncome: 0 } : metricsData} />
-          <GoalProgressChart data={planData?.goals ?? []} currency={currency} />
+          <GoalProgressChart data={planData?.goals ?? []} currency={currency} onGoalSelect={handleGoalSelect} />
           <Achievements />
           <Reminders goals={planData?.goals ?? []} />
         </div>
@@ -263,6 +297,11 @@ export default function DashboardPage() {
                      {formErrors?.goals && <p className="text-sm font-medium text-destructive">{formErrors.goals.toString()}</p>}
                      {goals.map((goal, index) => (
                        <div key={goal.id} className="p-4 border rounded-lg bg-muted/50 relative space-y-4">
+                         {goals.length > 1 && (
+                            <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-muted-foreground hover:text-destructive" onClick={() => removeGoal(goal.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                         )}
                          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                            <div className="space-y-2 md:col-span-2">
                              <Label htmlFor={`goal-name-${goal.id}`}>Goal Name</Label>
@@ -285,11 +324,6 @@ export default function DashboardPage() {
                             <Label htmlFor={`goal-description-${goal.id}`}>Description (Optional)</Label>
                             <Textarea id={`goal-description-${goal.id}`} value={goal.description} onChange={e => handleGoalChange(goal.id, 'description', e.target.value)} placeholder="e.g., A 2-week trip with the family, including flights, accommodation, and activities." />
                          </div>
-                         {goals.length > 1 && (
-                            <Button type="button" variant="ghost" size="icon" className="absolute -top-2 -right-2 text-muted-foreground hover:text-destructive" onClick={() => removeGoal(goal.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                         )}
                        </div>
                      ))}
                      <Button type="button" variant="outline" onClick={addGoal} className="w-full md:w-auto">
@@ -311,6 +345,13 @@ export default function DashboardPage() {
           </Card>
         </div>
       </main>
+      <UpdateGoalDialog
+        isOpen={isUpdateGoalDialogOpen}
+        onOpenChange={setUpdateGoalDialogOpen}
+        goal={selectedGoal}
+        onUpdate={handleUpdateGoal}
+        currency={currency}
+      />
     </div>
   );
 }
