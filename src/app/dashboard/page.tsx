@@ -83,17 +83,14 @@ function Dashboard() {
         description: "Your personalized financial plan is ready.",
       });
       setGoals(state.goals ?? []);
-      
-      // Don't reset the profile form, only the goals form
+      setNewGoal({ name: '', targetAmount: 0, currentAmount: 0, targetDate: '', description: '' });
       setFormGoals([]);
 
-      // Only set isFirstPlan to false after the first successful plan
       if (isFirstPlan) {
         setIsFirstPlan(false);
       }
       
       if (state.newAchievement) {
-        // Avoid adding duplicate 'First Planner' achievement
         if (!achievements.some(ach => ach.title === state.newAchievement!.title)) {
            setAchievements(prev => [...prev, state.newAchievement!]);
         }
@@ -110,12 +107,7 @@ function Dashboard() {
   
   const handleAddGoal = () => {
     if (newGoal.name && newGoal.targetAmount > 0 && newGoal.targetDate) {
-      const goalToAdd = { 
-        ...newGoal, 
-        id: Date.now().toString(),
-        description: newGoal.description === '' ? undefined : newGoal.description,
-      };
-      setFormGoals([...formGoals, goalToAdd]);
+      setFormGoals([...formGoals, { ...newGoal, id: Date.now().toString() }]);
       setNewGoal({ name: '', targetAmount: 0, currentAmount: 0, targetDate: '', description: '' });
     } else {
       toast({
@@ -143,13 +135,11 @@ function Dashboard() {
     );
     setGoals(updatedGoals);
   
-    // Check for achievement
     if (updatedAmount >= selectedGoal.targetAmount) {
       const newAchievement = {
         title: `Goal Achieved: ${selectedGoal.name}`,
         icon: selectedGoal.icon,
       };
-      // Avoid adding duplicate achievements
       if (!achievements.some(ach => ach.title === newAchievement.title)) {
         setAchievements(prev => [...prev, newAchievement]);
         toast({
@@ -180,7 +170,6 @@ function Dashboard() {
       <main className="flex-1 container mx-auto p-4 md:p-8">
         <form action={formAction} className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           
-          {/* Left Column */}
           <div className="lg:col-span-2 space-y-8">
             <Card>
               <CardHeader>
@@ -210,9 +199,7 @@ function Dashboard() {
                       value={netWorth ?? ''} 
                       onChange={(e) => setNetWorth(e.target.value ? parseFloat(e.target.value) : null)}
                     />
-                    <div className="h-5">
-                      {profileErrors?.netWorth && <p className="text-sm font-medium text-destructive">{profileErrors.netWorth[0]}</p>}
-                    </div>
+                    {profileErrors?.netWorth && <p className="text-sm font-medium text-destructive">{profileErrors.netWorth[0]}</p>}
                 </div>
 
                 <div className="space-y-2">
@@ -241,9 +228,7 @@ function Dashboard() {
                       />
                         <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     </div>
-                    <div className="h-5">
-                      {profileErrors?.savingsRate && <p className="text-sm font-medium text-destructive">{profileErrors.savingsRate[0]}</p>}
-                    </div>
+                    {profileErrors?.savingsRate && <p className="text-sm font-medium text-destructive">{profileErrors.savingsRate[0]}</p>}
                 </div>
                 
                 <div className="space-y-2">
@@ -256,9 +241,7 @@ function Dashboard() {
                       value={monthlyNetSalary ?? ''}
                       onChange={(e) => setMonthlyNetSalary(e.target.value ? parseFloat(e.target.value) : null)} 
                     />
-                     <div className="h-5">
-                      {profileErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{profileErrors.monthlyNetSalary[0]}</p>}
-                    </div>
+                     {profileErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{profileErrors.monthlyNetSalary[0]}</p>}
                 </div>
                 
                 <div className="space-y-2">
@@ -283,9 +266,7 @@ function Dashboard() {
                       value={totalDebt ?? ''}
                       onChange={(e) => setTotalDebt(e.target.value ? parseFloat(e.target.value) : null)}
                     />
-                    <div className="h-5">
-                      {profileErrors?.totalDebt && <p className="text-sm font-medium text-destructive">{profileErrors.totalDebt[0]}</p>}
-                    </div>
+                    {profileErrors?.totalDebt && <p className="text-sm font-medium text-destructive">{profileErrors.totalDebt[0]}</p>}
                 </div>
               </CardContent>
             </Card>
@@ -395,13 +376,12 @@ function Dashboard() {
             )}
           </div>
           
-          {/* Right Column */}
           <div className="space-y-8">
+            <GoalProgressChart data={goals} currency={currency} onGoalSelect={handleGoalSelect} />
             <KeyMetrics 
               currency={currency} 
               data={{ netWorth, savingsRate, debtToIncome, totalDebt, monthlyNetSalary }} 
             />
-            <GoalProgressChart data={goals} currency={currency} onGoalSelect={handleGoalSelect} />
             <Achievements achievements={achievements} />
             <Reminders goals={goals} />
           </div>

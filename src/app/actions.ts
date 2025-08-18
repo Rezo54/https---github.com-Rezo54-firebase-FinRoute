@@ -106,22 +106,13 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
 
 export async function generatePlan(prevState: State, formData: FormData): Promise<State> {
   try {
-    const goalsData = formData.getAll('goals').map(goal => {
-        const parsed = JSON.parse(goal as string);
-        // Zod's optional() expects undefined, but the form sends an empty string.
-        // We transform it here before validation.
-        if (parsed.description === '') {
-            parsed.description = undefined;
-        }
-        return parsed;
-    });
-
+    const goalsData = JSON.parse(formData.get('goals') as string);
     const rawData = {
       netWorth: formData.get('netWorth'),
       savingsRate: formData.get('savingsRate'),
       totalDebt: formData.get('totalDebt'),
       monthlyNetSalary: formData.get('monthlyNetSalary'),
-      goals: goalsData.length > 0 ? goalsData : [],
+      goals: goalsData,
       currency: formData.get('currency'),
       isFirstPlan: formData.get('isFirstPlan'),
     };
@@ -152,7 +143,10 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
     const input: FinancialPlanInput = {
       age: age,
       currency: currencySymbols[currency] || currency,
-      goals: goals,
+      goals: goals.map(g => ({
+        ...g,
+        description: g.description === '' ? undefined : g.description,
+      })),
       keyMetrics: {
         netWorth: netWorth,
         savingsRate: savingsRate,
