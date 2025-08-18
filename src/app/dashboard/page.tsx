@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useActionState } from 'react';
+import { useState, useEffect, useActionState, useId } from 'react';
 import { useFormStatus } from "react-dom";
 import { Achievements } from "@/components/dashboard/achievements";
 import { GoalProgressChart } from "@/components/dashboard/goal-progress-chart";
@@ -92,12 +92,13 @@ export default function DashboardPage() {
   const [state, formAction] = useActionState(generatePlan, initialFormState);
   const { toast } = useToast();
   
+  const uniqueId = useId();
   useEffect(() => {
     // Generate a unique ID for the initial goal on the client side to avoid hydration errors
     if (formGoals.length === 0) {
-        setFormGoals([{ id: `goal-${Date.now()}`, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
+        setFormGoals([{ id: `goal-${uniqueId}-0`, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
     }
-  }, [formGoals.length]);
+  }, [formGoals.length, uniqueId]);
 
 
   const handleGoalChange = (id: string, field: keyof Omit<Goal, 'id'>, value: string | number | null) => {
@@ -105,7 +106,7 @@ export default function DashboardPage() {
   };
 
   const addGoal = () => {
-    setFormGoals([...formGoals, { id: `goal-${Date.now()}`, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
+    setFormGoals([...formGoals, { id: `goal-${uniqueId}-${formGoals.length}`, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
   };
 
   const removeGoal = (id: string) => {
@@ -137,7 +138,7 @@ export default function DashboardPage() {
       setSavingsRate(null);
       setTotalDebt(null);
       setMonthlyNetSalary(null);
-      setFormGoals([{ id: `goal-${Date.now()}`, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
+      setFormGoals([{ id: `goal-${uniqueId}-0`, name: '', description: '', targetAmount: null, currentAmount: null, targetDate: '' }]);
 
     } else if (state.message && state.message !== 'Invalid form data.' && state.message !== 'success') {
       toast({
@@ -146,7 +147,7 @@ export default function DashboardPage() {
         description: state.message,
       });
     }
-  }, [state, toast]);
+  }, [state, toast, uniqueId]);
 
   const handleGoalSelect = (goal: PlanGoal) => {
     setSelectedGoal(goal);
@@ -194,7 +195,7 @@ export default function DashboardPage() {
       <Header currency={currency} setCurrency={setCurrency} />
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
         <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
-          <KeyMetrics currency={currency} data={{ netWorth: allGoals.reduce((acc, g) => acc + (g.currentAmount || 0), 0), savingsRate: null, debtToIncome: 0 }} />
+          <KeyMetrics currency={currency} data={metricsData} />
           <GoalProgressChart data={allGoals} currency={currency} onGoalSelect={handleGoalSelect} />
           <Achievements />
           <Reminders goals={allGoals} />
@@ -297,7 +298,7 @@ export default function DashboardPage() {
                   <div className="space-y-4">
                      <Label className="text-base font-semibold">Your Financial Goals</Label>
                      {formErrors?.goals && <p className="text-sm font-medium text-destructive">{formErrors.goals.toString()}</p>}
-                     {formGoals.map((goal, index) => (
+                     {formGoals.map((goal) => (
                        <div key={goal.id} className="p-4 border rounded-lg bg-muted/50 relative space-y-4">
                          {formGoals.length > 1 && (
                             <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-muted-foreground hover:text-destructive" onClick={() => removeGoal(goal.id)}>
@@ -359,3 +360,4 @@ export default function DashboardPage() {
   );
 
     
+
