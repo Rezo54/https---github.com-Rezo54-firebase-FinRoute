@@ -7,11 +7,11 @@ import { getFirestore } from "firebase/firestore";
 const firebaseConfig = {
   projectId: "finroute-49u64",
   appId: "1:435728537189:web:8b6f491d095458e2ccd88c",
-  storageBucket: "finroute-49u64.firebasestorage.app",
+  storageBucket: "finroute-49u64.appspot.com",
   apiKey: "AIzaSyCsuS0nDiCqPPFoQkTRU7Cs3BSDHfvTOTY",
   authDomain: "finroute-49u64.firebaseapp.com",
-  measurementId: "",
   messagingSenderId: "435728537189",
+  measurementId: "G-XXXXXXXXXX",
 };
 
 // Initialize Firebase
