@@ -4,11 +4,11 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 
 const tabs = [
     { name: 'Home', href: '/dashboard' },
     { name: 'Goals', href: '/dashboard/goals' },
+    { name: 'Saved Plans', href: '/dashboard/plans' },
 ];
 
 export function DashboardTabs() {

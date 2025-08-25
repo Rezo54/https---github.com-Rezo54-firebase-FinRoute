@@ -3,6 +3,7 @@
 
 import { financialPlanGenerator, type FinancialPlanInput, type FinancialPlanOutput } from '@/ai/flows/financial-plan-generator';
 import { z } from 'zod';
+import { redirect } from 'next/navigation';
 
 const goalSchema = z.object({
   id: z.string(),
@@ -200,4 +201,34 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
       plan: null,
     };
   }
+}
+
+const savePlanSchema = z.object({
+  plan: z.string(),
+  // We stringify these objects to easily pass them through formData
+  keyMetrics: z.string(),
+  goals: z.string(),
+});
+
+type SavePlanState = {
+  message: string;
+  errors?: z.ZodError<any>['formErrors'] | null;
+}
+
+export async function savePlan(prevState: SavePlanState, formData: FormData): Promise<SavePlanState> {
+  const validatedFields = savePlanSchema.safeParse(Object.fromEntries(formData.entries()));
+
+  if (!validatedFields.success) {
+    return {
+      message: 'Invalid data for saving plan.',
+      errors: validatedFields.error.flatten(),
+    };
+  }
+  // In a real app, you would save this to a database.
+  // For this demo, we'll just log it and send a success message.
+  // The actual "saving" to localStorage will happen on the client
+  // to avoid passing large amounts of data between server and client again.
+  console.log("Plan saved:", validatedFields.data);
+
+  return { message: 'success' };
 }

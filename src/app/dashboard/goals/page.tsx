@@ -1,10 +1,9 @@
 
 'use client';
 
-import { useState, useEffect, useActionState, Suspense } from 'react';
-import { generatePlan, type PlanGenerationState } from '@/app/actions';
+import { useState, useEffect, useActionState, Suspense, useTransition } from 'react';
+import { generatePlan, savePlan, type PlanGenerationState } from '@/app/actions';
 import { useToast } from "@/hooks/use-toast";
-import { useRouter } from 'next/navigation';
 import { useCurrency } from '@/hooks/use-currency';
 
 import { Header } from "@/components/layout/header";
@@ -16,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, Loader2, Info, X, Percent } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2, Info, X, Percent, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { DashboardTabs } from '@/components/dashboard/dashboard-tabs';
@@ -30,12 +29,17 @@ type Goal = {
   targetDate: string;
 };
 
-const initialState: PlanGenerationState = {
+const initialPlanState: PlanGenerationState = {
   message: '',
   errors: null,
   plan: null,
   goals: null,
   newAchievement: null,
+};
+
+const initialSaveState = {
+  message: '',
+  errors: null,
 };
 
 
@@ -49,8 +53,8 @@ export default function GoalsPage() {
 
 function Goals() {
   const { toast } = useToast();
-  const router = useRouter();
-  const [state, formAction, isPending] = useActionState(generatePlan, initialState);
+  const [generateState, generateFormAction, isGenerating] = useActionState(generatePlan, initialPlanState);
+  const [saveState, saveFormAction] = useActionState(savePlan, initialSaveState);
   const { currency } = useCurrency();
 
   const [netWorth, setNetWorth] = useState<number | null>(null);
@@ -61,41 +65,71 @@ function Goals() {
   const [formGoals, setFormGoals] = useState<Goal[]>([]);
   const [newGoal, setNewGoal] = useState<Omit<Goal, 'id'>>({ name: '', targetAmount: 0, currentAmount: 0, targetDate: '', description: '' });
   const [isFirstPlan, setIsFirstPlan] = useState(true);
+  
+  const [isSaving, startSaveTransition] = useTransition();
 
   const [generatedPlan, setGeneratedPlan] = useState<string | null>(null);
 
   useEffect(() => {
-    if (state.message === 'success' && state.plan) {
+    // Attempt to load profile from local storage on mount
+    const savedProfile = localStorage.getItem('userProfile');
+    if (savedProfile) {
+      try {
+        const profile = JSON.parse(savedProfile);
+        setNetWorth(profile.netWorth);
+        setSavingsRate(profile.savingsRate);
+        setTotalDebt(profile.totalDebt);
+        setMonthlyNetSalary(profile.monthlyNetSalary);
+      } catch (e) {
+        console.error("Failed to parse user profile from localStorage", e);
+      }
+    }
+  }, []);
+  
+  useEffect(() => {
+    if (generateState.message === 'success' && generateState.plan) {
       toast({
         title: "Plan Generated!",
         description: "Your personalized financial plan is ready.",
       });
       // Store state in localStorage for the main dashboard page to pick up
       if (typeof window !== 'undefined') {
-        localStorage.setItem('dashboardState', JSON.stringify(state));
+        localStorage.setItem('dashboardState', JSON.stringify(generateState));
+        // Also save profile data separately for persistence on this page
+        const profile = { netWorth, savingsRate, totalDebt, monthlyNetSalary };
+        localStorage.setItem('userProfile', JSON.stringify(profile));
       }
       if (isFirstPlan) setIsFirstPlan(false);
-      setGeneratedPlan(state.plan);
+      setGeneratedPlan(generateState.plan);
       
-      // Optionally reset form fields here
-      setNetWorth(null);
-      setSavingsRate(null);
-      setTotalDebt(null);
-      setMonthlyNetSalary(null);
+      // We no longer reset the profile fields, but we do reset the goals
       setFormGoals([]);
 
-      // We don't redirect anymore, we show the plan on this page
-      // router.push('/dashboard');
-
-    } else if (state.message && state.message !== 'success' && state.message !== 'loading') {
+    } else if (generateState.message && generateState.message !== 'success' && generateState.message !== 'loading') {
       toast({
         variant: "destructive",
         title: "Uh oh! Something went wrong.",
-        description: state.message,
+        description: generateState.message,
       });
     }
-  }, [state, toast, isFirstPlan, router]);
-  
+  }, [generateState, netWorth, savingsRate, totalDebt, monthlyNetSalary, isFirstPlan]);
+
+  useEffect(() => {
+    if (saveState.message === 'success') {
+      toast({
+        title: "Plan Saved!",
+        description: "You can view your saved plans on the 'Saved Plans' tab.",
+      });
+      saveState.message = ''; // Reset message to prevent re-toasting
+    } else if (saveState.message) {
+       toast({
+        variant: "destructive",
+        title: "Could not save plan.",
+        description: saveState.message,
+      });
+    }
+  }, [saveState]);
+
   const handleAddGoal = () => {
     if (newGoal.name && newGoal.targetAmount > 0 && newGoal.targetDate) {
       setFormGoals([...formGoals, { ...newGoal, id: Date.now().toString(), description: newGoal.description || undefined }]);
@@ -113,8 +147,32 @@ function Goals() {
     setFormGoals(formGoals.filter(g => g.id !== id));
   };
   
-  const profileErrors = state.errors?.fieldErrors;
-  const goalsError = state.errors?.formErrors?.[0] ?? state.errors?.fieldErrors?.goals?.[0];
+  const handleSavePlan = () => {
+    if (!generatedPlan || !generateState.keyMetrics || !generateState.goals) return;
+
+    startSaveTransition(() => {
+        const savedPlans = JSON.parse(localStorage.getItem('savedPlans') || '[]');
+        const newPlan = {
+            id: Date.now().toString(),
+            date: new Date().toISOString(),
+            plan: generatedPlan,
+            keyMetrics: generateState.keyMetrics,
+            goals: generateState.goals,
+        };
+        savedPlans.unshift(newPlan); // Add to the beginning
+        localStorage.setItem('savedPlans', JSON.stringify(savedPlans));
+        
+        // We can use the server action just to show the success toast
+        const formData = new FormData();
+        formData.append('plan', generatedPlan);
+        formData.append('keyMetrics', JSON.stringify(generateState.keyMetrics));
+        formData.append('goals', JSON.stringify(generateState.goals));
+        saveFormAction(formData);
+    });
+  }
+
+  const profileErrors = generateState.errors?.fieldErrors;
+  const goalsError = generateState.errors?.formErrors?.[0] ?? generateState.errors?.fieldErrors?.goals?.[0];
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
@@ -132,18 +190,23 @@ function Goals() {
                   <div dangerouslySetInnerHTML={{ __html: generatedPlan.replace(/\n/g, '<br />') }} />
                 </CardContent>
               </Card>
-              <Button onClick={() => setGeneratedPlan(null)} className="mt-4">Create a New Plan</Button>
+              <div className="flex gap-4 mt-4">
+                <Button onClick={() => setGeneratedPlan(null)}>Create a New Plan</Button>
+                <Button variant="outline" onClick={handleSavePlan} disabled={isSaving}>
+                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Save Plan
+                </Button>
+              </div>
           </div>
         ) : (
-          <form action={formAction} className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start mt-8">
-            
+          <form action={generateFormAction} className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start mt-8">
             <div className="lg:col-span-1 space-y-8">
               <Card>
                 <CardHeader>
                     <CardTitle>Your Profile</CardTitle>
-                    <CardDescription>Tell us about your current financial situation.</CardDescription>
+                    <CardDescription>This information will help us create your plan.</CardDescription>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 gap-4">
+                <CardContent className="flex flex-col gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="netWorth" className="flex items-center gap-1">
                         Net Worth
@@ -234,7 +297,6 @@ function Goals() {
                   </div>
                 </CardContent>
               </Card>
-              
             </div>
 
             <div className="lg:col-span-1 space-y-8">
@@ -319,8 +381,8 @@ function Goals() {
                 </CardContent>
               </Card>
 
-              <Button type="submit" size="lg" className="w-full" disabled={isPending}>
-                  {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Generate Financial Plan'}
+              <Button type="submit" size="lg" className="w-full" disabled={isGenerating}>
+                  {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Generate Financial Plan'}
               </Button>
               <input type="hidden" name="currency" value={currency} />
               <input type="hidden" name="isFirstPlan" value={String(isFirstPlan)} />
@@ -331,5 +393,3 @@ function Goals() {
     </div>
   );
 }
-
-    
