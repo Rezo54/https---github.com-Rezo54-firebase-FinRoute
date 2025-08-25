@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Loader2 } from 'lucide-react';
 
 interface Goal {
     name: string;
@@ -31,6 +31,8 @@ interface UpdateGoalDialogProps {
   onUpdate: (updatedAmount: number) => void;
   onDelete: () => void;
   currency: string;
+  isUpdating?: boolean;
+  isDeleting?: boolean;
 }
 
 export function UpdateGoalDialog({
@@ -40,6 +42,8 @@ export function UpdateGoalDialog({
   onUpdate,
   onDelete,
   currency,
+  isUpdating,
+  isDeleting,
 }: UpdateGoalDialogProps) {
   const [amount, setAmount] = useState<number | string>('');
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +71,8 @@ export function UpdateGoalDialog({
     }
 
     onUpdate(newAmount);
-    onOpenChange(false);
+    // Don't close immediately, let the parent handle it after the update is complete.
+    // onOpenChange(false);
   };
 
   if (!goal) return null;
@@ -98,11 +103,14 @@ export function UpdateGoalDialog({
            {error && <p className="col-span-4 text-right text-sm font-medium text-destructive">{error}</p>}
         </div>
         <DialogFooter className="sm:justify-between">
-          <Button variant="destructive" onClick={onDelete}>
-            <Trash2 className="mr-2 h-4 w-4" />
+          <Button variant="destructive" onClick={onDelete} disabled={isDeleting}>
+            {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
             Delete Goal
           </Button>
-          <Button type="submit" onClick={handleSubmit}>Save changes</Button>
+          <Button type="submit" onClick={handleSubmit} disabled={isUpdating}>
+            {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save changes
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -4,6 +4,10 @@
 import { financialPlanGenerator, type FinancialPlanInput, type FinancialPlanOutput } from '@/ai/flows/financial-plan-generator';
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import { createSession, deleteSession, getSession } from '@/lib/session';
 
 const goalSchema = z.object({
   id: z.string(),
@@ -56,21 +60,23 @@ export type PlanGenerationState = {
   } | null;
 }
 
+// Use email for username now
 const loginSchema = z.object({
-  username: z.string().min(1, { message: "Username is required." }),
+  email: z.string().email({ message: "Please enter a valid email address." }),
   password: z.string().min(1, { message: "Password is required." }),
 });
 
 const signupSchema = z.object({
-  username: z.string().min(3, { message: "Username must be at least 3 characters long." }),
+  email: z.string().email({ message: "Please enter a valid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters long." }),
   age: z.coerce.number().min(18, { message: "You must be at least 18 years old." }).max(100, { message: "Please enter a valid age."}),
 });
 
+
 type AuthState = {
   message: string;
   errors?: {
-    username?: string[];
+    email?: string[];
     password?: string[];
     age?: string[];
   } | null;
@@ -85,11 +91,20 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
+  
+  const { email, password } = validatedFields.data;
 
-  // TODO: Implement actual login logic
-  console.log("Login attempt:", validatedFields.data);
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    await createSession(userCredential.user.uid);
+  } catch (error: any) {
+    let message = 'An unexpected error occurred.';
+    if (error.code === 'auth/invalid-credential') {
+        message = 'Invalid email or password. Please try again.';
+    }
+    return { message, errors: null };
+  }
 
-  // Simulate successful login
   redirect('/dashboard');
 }
 
@@ -103,15 +118,44 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
     };
   }
 
-  // TODO: Implement actual signup logic (e.g., create user in a database)
-  console.log("Signup attempt:", validatedFields.data);
+  const { email, password, age } = validatedFields.data;
   
-  // Simulate successful signup and redirect
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    // Create a user document in Firestore
+    await setDoc(doc(db, "users", user.uid), {
+      email: user.email,
+      age: age,
+      createdAt: new Date().toISOString(),
+    });
+
+    await createSession(user.uid);
+
+  } catch (error: any) {
+    let message = 'An unexpected error occurred.';
+    if (error.code === 'auth/email-already-in-use') {
+        message = 'This email address is already in use.';
+    }
+    return { message, errors: null };
+  }
+  
   redirect('/dashboard');
+}
+
+export async function logout() {
+  deleteSession();
+  redirect('/');
 }
 
 
 export async function generatePlan(prevState: PlanGenerationState, formData: FormData): Promise<PlanGenerationState> {
+  const session = await getSession();
+  if (!session?.uid) {
+    redirect('/');
+  }
+
   try {
     const rawData: { [key: string]: any } = {};
     const goalEntries: { [key: string]: any } = {};
@@ -144,11 +188,17 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
 
     const { netWorth, savingsRate, totalDebt, monthlyNetSalary, goals, currency, isFirstPlan } = validatedFields.data;
     
+    // Get user age from Firestore
+    const userDoc = await getDoc(doc(db, 'users', session.uid));
+    const userData = userDoc.data();
+    if (!userData) {
+      return { message: "User profile not found.", errors: null, plan: null };
+    }
+    
     // Calculate Debt-to-Income Ratio
     const debtToIncome = monthlyNetSalary > 0 ? Math.round((totalDebt / monthlyNetSalary) * 100) : 0;
     
-    // TODO: Get age from user session
-    const age = 35;
+    const age = userData.age;
 
     const currencySymbols: { [key: string]: string } = {
       USD: "$", EUR: "€", JPY: "¥", GBP: "£", NGN: "₦", ZAR: "R", KES: "KSh", CNY: "¥", INR: "₹", SGD: "S$",
@@ -174,19 +224,31 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
         plan: null,
       }
     }
+    
+    const keyMetrics = {
+        netWorth,
+        savingsRate,
+        debtToIncome,
+        totalDebt,
+        monthlyNetSalary,
+    };
+
+    // Save the generated plan to firestore immediately
+     const planToSave = {
+        plan: result.plan,
+        goals: result.goals,
+        keyMetrics: keyMetrics,
+        createdAt: new Date().toISOString(),
+        currency: currency,
+    };
+    await addDoc(collection(db, "users", session.uid, "plans"), planToSave);
 
     const finalState: PlanGenerationState = {
       message: 'success',
       errors: null,
       plan: result.plan,
       goals: result.goals,
-      keyMetrics: {
-        netWorth,
-        savingsRate,
-        debtToIncome,
-        totalDebt,
-        monthlyNetSalary,
-      },
+      keyMetrics: keyMetrics,
       newAchievement: isFirstPlan ? { title: 'First Planner', icon: 'Award' } : null,
     };
 
@@ -204,10 +266,7 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
 }
 
 const savePlanSchema = z.object({
-  plan: z.string(),
-  // We stringify these objects to easily pass them through formData
-  keyMetrics: z.string(),
-  goals: z.string(),
+  planId: z.string()
 });
 
 type SavePlanState = {
@@ -216,6 +275,11 @@ type SavePlanState = {
 }
 
 export async function savePlan(prevState: SavePlanState, formData: FormData): Promise<SavePlanState> {
+    const session = await getSession();
+    if (!session?.uid) {
+        redirect('/');
+    }
+  
   const validatedFields = savePlanSchema.safeParse(Object.fromEntries(formData.entries()));
 
   if (!validatedFields.success) {
@@ -228,7 +292,116 @@ export async function savePlan(prevState: SavePlanState, formData: FormData): Pr
   // For this demo, we'll just log it and send a success message.
   // The actual "saving" to localStorage will happen on the client
   // to avoid passing large amounts of data between server and client again.
-  console.log("Plan saved:", validatedFields.data);
+  console.log("Plan saved action (placeholder):", validatedFields.data);
 
   return { message: 'success' };
+}
+
+// New function to fetch the latest plan
+export async function getDashboardState() {
+  const session = await getSession();
+  if (!session?.uid) {
+    return { message: 'Not authenticated', plan: null, goals: null, keyMetrics: null };
+  }
+
+  const plansRef = collection(db, 'users', session.uid, 'plans');
+  const q = query(plansRef, orderBy('createdAt', 'desc'));
+  const querySnapshot = await getDocs(q);
+
+  if (querySnapshot.empty) {
+    return { message: 'No plan found', plan: null, goals: null, keyMetrics: null };
+  }
+  
+  const latestPlan = querySnapshot.docs[0].data();
+
+  return {
+    message: 'success',
+    plan: latestPlan.plan,
+    goals: latestPlan.goals,
+    keyMetrics: latestPlan.keyMetrics,
+    currency: latestPlan.currency,
+  };
+}
+
+
+// Function to save user profile data
+const profileSchema = z.object({
+  netWorth: z.coerce.number().min(0, "Net worth must be a positive number."),
+  savingsRate: z.coerce.number().min(0, "Savings rate must be a positive number.").max(100, "Savings rate cannot exceed 100."),
+  totalDebt: z.coerce.number().min(0, "Total debt must be a positive number."),
+  monthlyNetSalary: z.coerce.number().min(1, "Monthly salary must be a positive number."),
+});
+
+type ProfileState = {
+  message: string;
+  errors?: z.ZodError<any>['formErrors'] | null;
+}
+
+export async function saveProfile(prevState: ProfileState, formData: FormData): Promise<ProfileState> {
+  const session = await getSession();
+  if (!session?.uid) {
+    redirect('/');
+  }
+
+  const validatedFields = profileSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!validatedFields.success) {
+    return { message: 'Invalid data', errors: validatedFields.error.flatten() };
+  }
+
+  try {
+    await setDoc(doc(db, 'users', session.uid), { profile: validatedFields.data }, { merge: true });
+    return { message: 'success' };
+  } catch (error) {
+    console.error("Failed to save profile: ", error);
+    return { message: 'Failed to save profile.' };
+  }
+}
+
+// Function to get user profile data
+export async function getProfile() {
+  const session = await getSession();
+  if (!session?.uid) {
+    return null;
+  }
+  const userDoc = await getDoc(doc(db, 'users', session.uid));
+  const userData = userDoc.data();
+  return userData?.profile ?? null;
+}
+
+export async function updateGoal(goalName: string, newAmount: number) {
+    const session = await getSession();
+    if (!session?.uid) {
+        redirect('/');
+    }
+
+    const plansRef = collection(db, 'users', session.uid, 'plans');
+    const q = query(plansRef, orderBy('createdAt', 'desc'));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+        const latestPlanDoc = querySnapshot.docs[0];
+        const latestPlanData = latestPlanDoc.data();
+        const updatedGoals = latestPlanData.goals.map((g: any) =>
+            g.name === goalName ? { ...g, currentAmount: newAmount } : g
+        );
+        await setDoc(latestPlanDoc.ref, { goals: updatedGoals }, { merge: true });
+    }
+}
+
+export async function deleteGoal(goalName: string) {
+    const session = await getSession();
+    if (!session?.uid) {
+        redirect('/');
+    }
+
+    const plansRef = collection(db, 'users', session.uid, 'plans');
+    const q = query(plansRef, orderBy('createdAt', 'desc'));
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+        const latestPlanDoc = querySnapshot.docs[0];
+        const latestPlanData = latestPlanDoc.data();
+        const updatedGoals = latestPlanData.goals.filter((g: any) => g.name !== goalName);
+        await setDoc(latestPlanDoc.ref, { goals: updatedGoals }, { merge: true });
+    }
 }

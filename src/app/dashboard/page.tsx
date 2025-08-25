@@ -1,9 +1,9 @@
 
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useTransition } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { type FinancialPlanOutput } from '@/app/actions';
+import { type FinancialPlanOutput } from '@/ai/flows/financial-plan-generator';
 import { useCurrency } from '@/hooks/use-currency';
 
 import { Header } from "@/components/layout/header";
@@ -14,47 +14,34 @@ import { Reminders } from '@/components/dashboard/reminders';
 import { GoalProgressChart } from '@/components/dashboard/goal-progress-chart';
 import { UpdateGoalDialog } from '@/components/dashboard/update-goal-dialog';
 import { DashboardTabs } from '@/components/dashboard/dashboard-tabs';
+import { getDashboardState, updateGoal, deleteGoal } from '@/app/actions';
+import { Loader2 } from 'lucide-react';
 
 type Achievement = {
   title: string;
   icon: any; 
 };
 
-// This page now relies on localStorage to get the plan state
-// as it's generated on a different page.
-function getInitialState() {
-    if (typeof window === 'undefined') {
-        return {
-            message: '',
-            plan: null,
-            goals: null,
-            keyMetrics: null,
-            newAchievement: null,
-        };
-    }
-    const storedState = localStorage.getItem('dashboardState');
-    if (storedState) {
-        try {
-            const parsed = JSON.parse(storedState);
-            // We don't want to persist errors or messages
-            return { ...parsed, message: '', errors: null };
-        } catch (e) {
-            return { message: '', plan: null, goals: null, keyMetrics: null, newAchievement: null };
-        }
-    }
-    return {
-        message: '',
-        plan: null,
-        goals: null,
-        keyMetrics: null,
-        newAchievement: null,
-    };
+type DashboardState = {
+  message: string;
+  plan: string | null;
+  goals: FinancialPlanOutput['goals'] | null;
+  keyMetrics: any;
+  newAchievement?: { title: string; icon: string; } | null;
 }
+
+const initialState: DashboardState = {
+    message: '',
+    plan: null,
+    goals: null,
+    keyMetrics: null,
+    newAchievement: null,
+};
 
 
 export default function DashboardPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<DashboardSkeleton/>}>
       <Dashboard />
     </Suspense>
   )
@@ -62,48 +49,38 @@ export default function DashboardPage() {
 
 function Dashboard() {
     const { toast } = useToast();
-    const [state, setState] = useState(getInitialState);
-    const { currency } = useCurrency();
+    const [state, setState] = useState<DashboardState>(initialState);
+    const { currency, setCurrency } = useCurrency();
+    const [isLoading, setIsLoading] = useState(true);
 
-    const [goals, setGoals] = useState<FinancialPlanOutput['goals']>(state.goals ?? []);
+    const [goals, setGoals] = useState<FinancialPlanOutput['goals'] | null>(state.goals ?? null);
     
     const [achievements, setAchievements] = useState<Achievement[]>([]);
     const [selectedGoal, setSelectedGoal] = useState<FinancialPlanOutput['goals'][0] | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    
+    const [isUpdating, startUpdateTransition] = useTransition();
+    const [isDeleting, startDeleteTransition] = useTransition();
 
     useEffect(() => {
-        const handleStorageChange = () => {
-            const storedState = localStorage.getItem('dashboardState');
-            if (storedState) {
-                try {
-                    const parsedState = JSON.parse(storedState);
-                    setState(parsedState);
-                    setGoals(parsedState.goals ?? []);
-                    
-                    if (parsedState.newAchievement) {
-                        setAchievements(prev => {
-                            if (!prev.some(ach => ach.title === parsedState.newAchievement.title)) {
-                                return [...prev, parsedState.newAchievement];
-                            }
-                            return prev;
-                        });
-                    }
-                } catch (e) {
-                    console.error("Failed to parse state from localStorage", e);
+        const fetchState = async () => {
+            setIsLoading(true);
+            const dashboardState = await getDashboardState();
+            if (dashboardState.message === 'success') {
+                setState(dashboardState as DashboardState);
+                setGoals(dashboardState.goals ?? []);
+                if (dashboardState.currency) {
+                  setCurrency(dashboardState.currency);
                 }
+            } else {
+                setState(initialState);
+                setGoals([]);
             }
+            setIsLoading(false);
         };
-
-        // Initial load
-        handleStorageChange();
-
-        // Listen for changes from other tabs/windows
-        window.addEventListener('storage', handleStorageChange);
-
-        return () => {
-            window.removeEventListener('storage', handleStorageChange);
-        };
-    }, []);
+        fetchState();
+    }, [setCurrency]);
+    
 
   const handleGoalSelect = (goal: FinancialPlanOutput['goals'][0]) => {
     setSelectedGoal(goal);
@@ -112,47 +89,51 @@ function Dashboard() {
   
   const handleUpdateGoal = (updatedAmount: number) => {
     if (!selectedGoal) return;
-  
-    const updatedGoals = goals.map(g =>
-      g.name === selectedGoal.name ? { ...g, currentAmount: updatedAmount } : g
-    );
-    setGoals(updatedGoals);
     
-    // Update localStorage
-    const currentState = JSON.parse(localStorage.getItem('dashboardState') || '{}');
-    localStorage.setItem('dashboardState', JSON.stringify({ ...currentState, goals: updatedGoals }));
-  
-    if (updatedAmount >= selectedGoal.targetAmount) {
-      const newAchievement = {
-        title: `Goal Achieved: ${selectedGoal.name}`,
-        icon: selectedGoal.icon,
-      };
-      if (!achievements.some(ach => ach.title === newAchievement.title)) {
-        setAchievements(prev => [...prev, newAchievement]);
-        toast({
-          title: "Achievement Unlocked!",
-          description: `You've reached your goal: ${selectedGoal.name}!`,
-        });
-      }
-    }
+    startUpdateTransition(async () => {
+        await updateGoal(selectedGoal.name, updatedAmount);
+
+        const updatedGoals = goals?.map(g =>
+          g.name === selectedGoal.name ? { ...g, currentAmount: updatedAmount } : g
+        );
+        setGoals(updatedGoals ?? []);
+      
+        if (updatedAmount >= selectedGoal.targetAmount) {
+          const newAchievement = {
+            title: `Goal Achieved: ${selectedGoal.name}`,
+            icon: selectedGoal.icon,
+          };
+          if (!achievements.some(ach => ach.title === newAchievement.title)) {
+            setAchievements(prev => [...prev, newAchievement]);
+            toast({
+              title: "Achievement Unlocked!",
+              description: `You've reached your goal: ${selectedGoal.name}!`,
+            });
+          }
+        }
+    });
   };
   
   const handleDeleteGoal = () => {
     if (!selectedGoal) return;
-    const updatedGoals = goals.filter(g => g.name !== selectedGoal.name);
-    setGoals(updatedGoals);
-    
-    // Update localStorage
-    const currentState = JSON.parse(localStorage.getItem('dashboardState') || '{}');
-    localStorage.setItem('dashboardState', JSON.stringify({ ...currentState, goals: updatedGoals }));
 
-    setAchievements(achievements.filter(ach => ach.title !== `Goal Achieved: ${selectedGoal.name}`));
-    setIsDialogOpen(false);
-    toast({
-      title: "Goal Deleted",
-      description: `Your goal "${selectedGoal.name}" has been removed.`,
+    startDeleteTransition(async () => {
+        await deleteGoal(selectedGoal.name);
+        const updatedGoals = goals?.filter(g => g.name !== selectedGoal.name);
+        setGoals(updatedGoals ?? []);
+
+        setAchievements(achievements.filter(ach => ach.title !== `Goal Achieved: ${selectedGoal.name}`));
+        setIsDialogOpen(false);
+        toast({
+        title: "Goal Deleted",
+        description: `Your goal "${selectedGoal.name}" has been removed.`,
+        });
     });
   };
+  
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
 
   const hasPlan = !!state.plan;
 
@@ -177,7 +158,7 @@ function Dashboard() {
                     </CardContent>
                 </Card>
             ) : (
-              <GoalProgressChart data={goals} currency={currency} onGoalSelect={handleGoalSelect} />
+              <GoalProgressChart data={goals ?? []} currency={currency} onGoalSelect={handleGoalSelect} />
             )}
           </div>
           
@@ -189,7 +170,7 @@ function Dashboard() {
              {hasPlan && (
                 <>
                     <Achievements achievements={achievements} />
-                    <Reminders goals={goals} />
+                    <Reminders goals={goals ?? []} />
                 </>
             )}
           </div>
@@ -201,9 +182,33 @@ function Dashboard() {
             onUpdate={handleUpdateGoal}
             onDelete={handleDeleteGoal}
             currency={currency}
+            isUpdating={isUpdating}
+            isDeleting={isDeleting}
           />
         </div>
       </main>
     </div>
   );
+}
+
+
+function DashboardSkeleton() {
+  return (
+     <div className="flex flex-col min-h-screen bg-background text-foreground">
+      <Header />
+      <main className="flex-1 container mx-auto p-4 md:p-8">
+        <DashboardTabs />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start mt-8">
+          <div className="lg:col-span-2 space-y-8">
+             <Card className="flex items-center justify-center min-h-[350px]">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+             </Card>
+          </div>
+          <div className="space-y-8">
+            <KeyMetrics currency={"ZAR"} data={null} />
+          </div>
+        </div>
+      </main>
+    </div>
+  )
 }

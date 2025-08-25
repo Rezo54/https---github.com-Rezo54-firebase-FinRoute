@@ -2,7 +2,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useActionState, use } from 'react';
+import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { login, signup } from '@/app/actions';
 import { Button } from '@/components/ui/button';
@@ -11,10 +11,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { AuthFormSwitcher } from './auth-form-switcher';
+import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
 const initialState = {
   message: '',
-  errors: {},
+  errors: null,
 };
 
 function SubmitButton({ isSignUp }: { isSignUp: boolean }) {
@@ -45,10 +46,10 @@ export function AuthForm() {
       <CardContent>
         <form action={formAction} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
-            <Input id="username" name="username" placeholder="yourusername" required />
-            {state?.errors?.username && (
-              <p className="text-sm font-medium text-destructive">{state.errors.username[0]}</p>
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" name="email" type="email" placeholder="you@example.com" required />
+            {state?.errors?.email && (
+              <p className="text-sm font-medium text-destructive">{state.errors.email[0]}</p>
             )}
           </div>
           {isSignUp && (
@@ -67,8 +68,12 @@ export function AuthForm() {
               <p className="text-sm font-medium text-destructive">{state.errors.password[0]}</p>
             )}
           </div>
-          {state.message && !state.errors && (
-            <p className="text-sm font-medium text-destructive">{state.message}</p>
+          {state?.message && (
+             <Alert variant="destructive">
+                <AlertDescription>
+                  {state.message}
+                </AlertDescription>
+            </Alert>
           )}
           <SubmitButton isSignUp={isSignUp} />
         </form>

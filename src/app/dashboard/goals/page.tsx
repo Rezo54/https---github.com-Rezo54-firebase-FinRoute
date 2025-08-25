@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useActionState, Suspense, useTransition } from 'react';
-import { generatePlan, savePlan, type PlanGenerationState } from '@/app/actions';
+import { generatePlan, saveProfile, getProfile, type PlanGenerationState } from '@/app/actions';
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from '@/hooks/use-currency';
 
@@ -15,10 +15,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, Loader2, Info, X, Percent, Save } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2, Info, X, Percent, Save, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { DashboardTabs } from '@/components/dashboard/dashboard-tabs';
+import { redirect } from 'next/navigation';
 
 type Goal = {
   id: string;
@@ -37,10 +38,19 @@ const initialPlanState: PlanGenerationState = {
   newAchievement: null,
 };
 
-const initialSaveState = {
-  message: '',
-  errors: null,
-};
+type ProfileData = {
+    netWorth: number | null;
+    savingsRate: number | null;
+    totalDebt: number | null;
+    monthlyNetSalary: number | null;
+}
+
+const initialProfileData: ProfileData = {
+    netWorth: null,
+    savingsRate: null,
+    totalDebt: null,
+    monthlyNetSalary: null,
+}
 
 
 export default function GoalsPage() {
@@ -54,36 +64,24 @@ export default function GoalsPage() {
 function Goals() {
   const { toast } = useToast();
   const [generateState, generateFormAction, isGenerating] = useActionState(generatePlan, initialPlanState);
-  const [saveState, saveFormAction] = useActionState(savePlan, initialSaveState);
   const { currency } = useCurrency();
+  const [isSavingProfile, startSaveProfileTransition] = useTransition();
 
-  const [netWorth, setNetWorth] = useState<number | null>(null);
-  const [savingsRate, setSavingsRate] = useState<number | null>(null);
-  const [totalDebt, setTotalDebt] = useState<number | null>(null);
-  const [monthlyNetSalary, setMonthlyNetSalary] = useState<number | null>(null);
-  
+  const [profileData, setProfileData] = useState<ProfileData>(initialProfileData);
+
   const [formGoals, setFormGoals] = useState<Goal[]>([]);
   const [newGoal, setNewGoal] = useState<Omit<Goal, 'id'>>({ name: '', targetAmount: 0, currentAmount: 0, targetDate: '', description: '' });
-  const [isFirstPlan, setIsFirstPlan] = useState(true);
+  const [isFirstPlan, setIsFirstPlan] = useState(true); // This might need to be determined from Firestore
   
-  const [isSaving, startSaveTransition] = useTransition();
-
   const [generatedPlan, setGeneratedPlan] = useState<string | null>(null);
 
   useEffect(() => {
-    // Attempt to load profile from local storage on mount
-    const savedProfile = localStorage.getItem('userProfile');
-    if (savedProfile) {
-      try {
-        const profile = JSON.parse(savedProfile);
-        setNetWorth(profile.netWorth);
-        setSavingsRate(profile.savingsRate);
-        setTotalDebt(profile.totalDebt);
-        setMonthlyNetSalary(profile.monthlyNetSalary);
-      } catch (e) {
-        console.error("Failed to parse user profile from localStorage", e);
-      }
-    }
+    // Attempt to load profile from firestore on mount
+    getProfile().then(data => {
+        if (data) {
+            setProfileData(data);
+        }
+    });
   }, []);
   
   useEffect(() => {
@@ -92,18 +90,8 @@ function Goals() {
         title: "Plan Generated!",
         description: "Your personalized financial plan is ready.",
       });
-      // Store state in localStorage for the main dashboard page to pick up
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('dashboardState', JSON.stringify(generateState));
-        // Also save profile data separately for persistence on this page
-        const profile = { netWorth, savingsRate, totalDebt, monthlyNetSalary };
-        localStorage.setItem('userProfile', JSON.stringify(profile));
-      }
-      if (isFirstPlan) setIsFirstPlan(false);
-      setGeneratedPlan(generateState.plan);
-      
-      // We no longer reset the profile fields, but we do reset the goals
-      setFormGoals([]);
+      // Redirect to dashboard after generation
+      redirect('/dashboard');
 
     } else if (generateState.message && generateState.message !== 'success' && generateState.message !== 'loading') {
       toast({
@@ -112,23 +100,7 @@ function Goals() {
         description: generateState.message,
       });
     }
-  }, [generateState, netWorth, savingsRate, totalDebt, monthlyNetSalary, isFirstPlan]);
-
-  useEffect(() => {
-    if (saveState.message === 'success') {
-      toast({
-        title: "Plan Saved!",
-        description: "You can view your saved plans on the 'Saved Plans' tab.",
-      });
-      saveState.message = ''; // Reset message to prevent re-toasting
-    } else if (saveState.message) {
-       toast({
-        variant: "destructive",
-        title: "Could not save plan.",
-        description: saveState.message,
-      });
-    }
-  }, [saveState]);
+  }, [generateState, isFirstPlan]);
 
   const handleAddGoal = () => {
     if (newGoal.name && newGoal.targetAmount > 0 && newGoal.targetDate) {
@@ -147,27 +119,32 @@ function Goals() {
     setFormGoals(formGoals.filter(g => g.id !== id));
   };
   
-  const handleSavePlan = () => {
-    if (!generatedPlan || !generateState.keyMetrics || !generateState.goals) return;
-
-    startSaveTransition(() => {
-        const savedPlans = JSON.parse(localStorage.getItem('savedPlans') || '[]');
-        const newPlan = {
-            id: Date.now().toString(),
-            date: new Date().toISOString(),
-            plan: generatedPlan,
-            keyMetrics: generateState.keyMetrics,
-            goals: generateState.goals,
-        };
-        savedPlans.unshift(newPlan); // Add to the beginning
-        localStorage.setItem('savedPlans', JSON.stringify(savedPlans));
-        
-        // We can use the server action just to show the success toast
+  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setProfileData(prev => ({...prev, [name]: value ? parseFloat(value) : null }));
+  }
+  
+  const handleSaveProfile = () => {
+    startSaveProfileTransition(async () => {
         const formData = new FormData();
-        formData.append('plan', generatedPlan);
-        formData.append('keyMetrics', JSON.stringify(generateState.keyMetrics));
-        formData.append('goals', JSON.stringify(generateState.goals));
-        saveFormAction(formData);
+        Object.entries(profileData).forEach(([key, value]) => {
+            if (value !== null) {
+                formData.append(key, String(value));
+            }
+        });
+        const result = await saveProfile(undefined as any, formData);
+        if (result.message === 'success') {
+            toast({
+                title: "Profile Saved!",
+                description: "Your profile information has been updated.",
+            });
+        } else {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: result.message
+            })
+        }
     });
   }
 
@@ -179,9 +156,8 @@ function Goals() {
       <Header />
       <main className="flex-1 container mx-auto p-4 md:p-8">
         <DashboardTabs />
-
         {generatedPlan ? (
-          <div className="mt-8">
+            <div className="mt-8">
              <Card>
                 <CardHeader>
                   <CardTitle>Your Personalized Plan</CardTitle>
@@ -192,10 +168,6 @@ function Goals() {
               </Card>
               <div className="flex gap-4 mt-4">
                 <Button onClick={() => setGeneratedPlan(null)}>Create a New Plan</Button>
-                <Button variant="outline" onClick={handleSavePlan} disabled={isSaving}>
-                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    Save Plan
-                </Button>
               </div>
           </div>
         ) : (
@@ -207,94 +179,100 @@ function Goals() {
                     <CardDescription>This information will help us create your plan.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="netWorth" className="flex items-center gap-1">
-                        Net Worth
-                        <TooltipProvider>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                      <Label htmlFor="netWorth" className="flex items-center gap-1">
+                          Net Worth
+                          <TooltipProvider>
+                              <Tooltip>
+                              <TooltipTrigger asChild>
+                                  <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                  <p>Your total assets minus your total liabilities.</p>
+                              </TooltipContent>
+                              </Tooltip>
+                          </TooltipProvider>
+                      </Label>
+                      <Input 
+                          id="netWorth" 
+                          name="netWorth" 
+                          type="number" 
+                          placeholder="e.g. 50000" 
+                          value={profileData.netWorth ?? ''} 
+                          onChange={handleProfileChange}
+                      />
+                      {profileErrors?.netWorth && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.netWorth[0]}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="monthlyNetSalary">Monthly Net Salary</Label>
+                        <Input 
+                            id="monthlyNetSalary" 
+                            name="monthlyNetSalary" 
+                            type="number" 
+                            placeholder="e.g. 3000"
+                            value={profileData.monthlyNetSalary ?? ''}
+                            onChange={handleProfileChange}
+                        />
+                        {profileErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.monthlyNetSalary[0]}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="savingsRate" className="flex items-center gap-1">
+                            Savings Rate (%)
+                            <TooltipProvider>
                             <Tooltip>
-                            <TooltipTrigger asChild>
+                                <TooltipTrigger asChild>
                                 <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Your total assets minus your total liabilities.</p>
-                            </TooltipContent>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                <p>The percentage of your net income that you save.</p>
+                                </TooltipContent>
                             </Tooltip>
-                        </TooltipProvider>
-                    </Label>
-                    <Input 
-                        id="netWorth" 
-                        name="netWorth" 
-                        type="number" 
-                        placeholder="e.g. 50000" 
-                        value={netWorth ?? ''} 
-                        onChange={(e) => setNetWorth(e.target.value ? parseFloat(e.target.value) : null)}
-                    />
-                    {profileErrors?.netWorth && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.netWorth[0]}</p>}
+                            </TooltipProvider>
+                        </Label>
+                        <div className="relative">
+                            <Input 
+                            id="savingsRate" 
+                            name="savingsRate" 
+                            type="number" 
+                            placeholder="e.g. 15"
+                            className="pr-8"
+                            value={profileData.savingsRate ?? ''}
+                            onChange={handleProfileChange}
+                            />
+                            <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        </div>
+                        {profileErrors?.savingsRate && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.savingsRate[0]}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="totalDebt" className="flex items-center gap-1">
+                            Current Total Debt
+                            <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                <p>The total amount of debt you currently have.</p>
+                                </TooltipContent>
+                            </Tooltip>
+                            </TooltipProvider>
+                        </Label>
+                        <Input 
+                            id="totalDebt" 
+                            name="totalDebt" 
+                            type="number" 
+                            placeholder="e.g. 10000"
+                            value={profileData.totalDebt ?? ''}
+                            onChange={handleProfileChange}
+                        />
+                        {profileErrors?.totalDebt && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.totalDebt[0]}</p>}
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                      <Label htmlFor="monthlyNetSalary">Monthly Net Salary</Label>
-                      <Input 
-                          id="monthlyNetSalary" 
-                          name="monthlyNetSalary" 
-                          type="number" 
-                          placeholder="e.g. 3000"
-                          value={monthlyNetSalary ?? ''}
-                          onChange={(e) => setMonthlyNetSalary(e.target.value ? parseFloat(e.target.value) : null)} 
-                      />
-                      {profileErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.monthlyNetSalary[0]}</p>}
-                  </div>
-                  <div className="space-y-2">
-                      <Label htmlFor="savingsRate" className="flex items-center gap-1">
-                          Savings Rate (%)
-                          <TooltipProvider>
-                          <Tooltip>
-                              <TooltipTrigger asChild>
-                              <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                              <p>The percentage of your net income that you save.</p>
-                              </TooltipContent>
-                          </Tooltip>
-                          </TooltipProvider>
-                      </Label>
-                      <div className="relative">
-                          <Input 
-                          id="savingsRate" 
-                          name="savingsRate" 
-                          type="number" 
-                          placeholder="e.g. 15"
-                          className="pr-8"
-                          value={savingsRate ?? ''}
-                          onChange={(e) => setSavingsRate(e.target.value ? parseFloat(e.target.value) : null)}
-                          />
-                          <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      </div>
-                      {profileErrors?.savingsRate && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.savingsRate[0]}</p>}
-                  </div>
-                  <div className="space-y-2">
-                      <Label htmlFor="totalDebt" className="flex items-center gap-1">
-                          Current Total Debt
-                          <TooltipProvider>
-                          <Tooltip>
-                              <TooltipTrigger asChild>
-                              <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                              <p>The total amount of debt you currently have.</p>
-                              </TooltipContent>
-                          </Tooltip>
-                          </TooltipProvider>
-                      </Label>
-                      <Input 
-                          id="totalDebt" 
-                          name="totalDebt" 
-                          type="number" 
-                          placeholder="e.g. 10000"
-                          value={totalDebt ?? ''}
-                          onChange={(e) => setTotalDebt(e.target.value ? parseFloat(e.target.value) : null)}
-                      />
-                      {profileErrors?.totalDebt && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.totalDebt[0]}</p>}
-                  </div>
+                   <Button type="button" variant="outline" onClick={handleSaveProfile} disabled={isSavingProfile}>
+                      {isSavingProfile ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                      Save Profile
+                  </Button>
                 </CardContent>
               </Card>
             </div>

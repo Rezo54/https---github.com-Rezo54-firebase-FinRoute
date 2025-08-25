@@ -4,28 +4,42 @@
 import { Suspense, useEffect, useState } from 'react';
 import { Header } from "@/components/layout/header";
 import { DashboardTabs } from '@/components/dashboard/dashboard-tabs';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, parseISO } from 'date-fns';
+import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { getSession } from '@/lib/session';
+import { db } from '@/lib/firebase';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion"
+} from "@/components/ui/accordion";
+import { Loader2 } from 'lucide-react';
 
 
 type SavedPlan = {
     id: string;
-    date: string;
+    createdAt: string;
     plan: string;
     keyMetrics: any;
     goals: any[];
 }
 
+async function getSavedPlans() {
+    const session = await getSession();
+    if (!session?.uid) return [];
+
+    const plansRef = collection(db, 'users', session.uid, 'plans');
+    const q = query(plansRef, orderBy('createdAt', 'desc'));
+    const querySnapshot = await getDocs(q);
+
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SavedPlan));
+}
+
 export default function SavedPlansPage() {
     return (
-        <Suspense>
+        <Suspense fallback={<PlansSkeleton />}>
             <SavedPlans />
         </Suspense>
     )
@@ -33,18 +47,17 @@ export default function SavedPlansPage() {
 
 function SavedPlans() {
     const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
-    const [hydrated, setHydrated] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        // Ensure this runs only on the client
-        setHydrated(true);
-        const plansFromStorage = JSON.parse(localStorage.getItem('savedPlans') || '[]');
-        setSavedPlans(plansFromStorage);
+        getSavedPlans().then(plans => {
+            setSavedPlans(plans);
+            setIsLoading(false);
+        });
     }, []);
 
-    if (!hydrated) {
-        // Render nothing or a loading indicator on the server
-        return null; 
+    if (isLoading) {
+        return <PlansSkeleton />;
     }
 
     return (
@@ -65,7 +78,7 @@ function SavedPlans() {
                                 {savedPlans.map((item) => (
                                     <AccordionItem value={item.id} key={item.id}>
                                         <AccordionTrigger>
-                                            Plan from {format(parseISO(item.date), "PPP p")}
+                                            Plan from {format(parseISO(item.createdAt), "PPP p")}
                                         </AccordionTrigger>
                                         <AccordionContent>
                                             <div className="prose prose-invert max-w-none">
@@ -86,4 +99,27 @@ function SavedPlans() {
             </main>
         </div>
     );
+}
+
+
+function PlansSkeleton() {
+  return (
+    <div className="flex flex-col min-h-screen bg-background text-foreground">
+        <Header />
+        <main className="flex-1 container mx-auto p-4 md:p-8">
+            <DashboardTabs />
+            <div className="mt-8">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Saved Financial Plans</CardTitle>
+                        <CardDescription>Review your previously generated and saved financial plans.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex items-center justify-center min-h-[200px]">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </CardContent>
+                </Card>
+            </div>
+        </main>
+    </div>
+  )
 }

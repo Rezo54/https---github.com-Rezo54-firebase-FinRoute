@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useRef, ChangeEvent } from 'react';
+import { useState, useRef, ChangeEvent, useTransition } from 'react';
 import { FinRouteLogo } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,11 +14,14 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useCurrency } from '@/hooks/use-currency';
+import { logout } from '@/app/actions';
 
 export function Header() {
   const [avatarSrc, setAvatarSrc] = useState("https://placehold.co/100x100.png");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { currency, setCurrency } = useCurrency();
+  const [isPending, startTransition] = useTransition();
+
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -33,6 +36,12 @@ export function Header() {
       };
       reader.readAsDataURL(file);
     }
+  };
+  
+  const handleLogout = () => {
+    startTransition(async () => {
+      await logout();
+    });
   };
 
 
@@ -80,7 +89,7 @@ export function Header() {
                 <span>Upload Photo</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout} disabled={isPending}>
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
               </DropdownMenuItem>
