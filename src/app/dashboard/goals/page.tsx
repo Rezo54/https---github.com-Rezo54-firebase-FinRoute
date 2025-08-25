@@ -5,6 +5,7 @@ import { useState, useEffect, useActionState, Suspense } from 'react';
 import { generatePlan, type PlanGenerationState } from '@/app/actions';
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from 'next/navigation';
+import { useCurrency } from '@/hooks/use-currency';
 
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,8 +51,8 @@ function Goals() {
   const { toast } = useToast();
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(generatePlan, initialState);
+  const { currency } = useCurrency();
 
-  const [currency, setCurrency] = useState('USD');
   const [netWorth, setNetWorth] = useState<number | null>(null);
   const [savingsRate, setSavingsRate] = useState<number | null>(null);
   const [totalDebt, setTotalDebt] = useState<number | null>(null);
@@ -117,7 +118,7 @@ function Goals() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
-      <Header currency={currency} setCurrency={setCurrency} />
+      <Header />
       <main className="flex-1 container mx-auto p-4 md:p-8">
         <DashboardTabs />
 

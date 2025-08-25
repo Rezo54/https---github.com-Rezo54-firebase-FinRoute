@@ -4,6 +4,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { type FinancialPlanOutput } from '@/app/actions';
+import { useCurrency } from '@/hooks/use-currency';
 
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,8 +63,8 @@ export default function DashboardPage() {
 function Dashboard() {
     const { toast } = useToast();
     const [state, setState] = useState(getInitialState);
+    const { currency } = useCurrency();
 
-    const [currency, setCurrency] = useState('USD');
     const [goals, setGoals] = useState<FinancialPlanOutput['goals']>(state.goals ?? []);
     
     const [achievements, setAchievements] = useState<Achievement[]>([]);
@@ -157,7 +158,7 @@ function Dashboard() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
-      <Header currency={currency} setCurrency={setCurrency} />
+      <Header />
       <main className="flex-1 container mx-auto p-4 md:p-8">
         <DashboardTabs />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start mt-8">

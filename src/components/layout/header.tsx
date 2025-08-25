@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useRef, ChangeEvent, Dispatch, SetStateAction } from 'react';
+import { useState, useRef, ChangeEvent } from 'react';
 import { FinRouteLogo } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,15 +13,12 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { useCurrency } from '@/hooks/use-currency';
 
-interface HeaderProps {
-  currency: string;
-  setCurrency: Dispatch<SetStateAction<string>>;
-}
-
-export function Header({ currency, setCurrency }: HeaderProps) {
+export function Header() {
   const [avatarSrc, setAvatarSrc] = useState("https://placehold.co/100x100.png");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { currency, setCurrency } = useCurrency();
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
