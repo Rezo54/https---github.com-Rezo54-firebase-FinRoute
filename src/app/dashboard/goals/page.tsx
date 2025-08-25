@@ -143,7 +143,7 @@ function Goals() {
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
+                        <div>
                             <Label htmlFor="netWorth" className="flex items-center gap-1">
                                 Net Worth
                                 <TooltipProvider>
@@ -162,24 +162,26 @@ function Goals() {
                                 name="netWorth" 
                                 type="number" 
                                 placeholder="e.g. 50000" 
+                                className="mt-2"
                                 value={netWorth ?? ''} 
                                 onChange={(e) => setNetWorth(e.target.value ? parseFloat(e.target.value) : null)}
                             />
-                            {profileErrors?.netWorth && <p className="text-sm font-medium text-destructive">{profileErrors.netWorth[0]}</p>}
+                            {profileErrors?.netWorth && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.netWorth[0]}</p>}
                         </div>
-                        <div className="space-y-2">
+                        <div>
                             <Label htmlFor="monthlyNetSalary">Monthly Net Salary</Label>
                             <Input 
                                 id="monthlyNetSalary" 
                                 name="monthlyNetSalary" 
                                 type="number" 
                                 placeholder="e.g. 3000"
+                                className="mt-2"
                                 value={monthlyNetSalary ?? ''}
                                 onChange={(e) => setMonthlyNetSalary(e.target.value ? parseFloat(e.target.value) : null)} 
                             />
-                            {profileErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{profileErrors.monthlyNetSalary[0]}</p>}
+                            {profileErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.monthlyNetSalary[0]}</p>}
                         </div>
-                        <div className="space-y-2">
+                        <div>
                             <Label htmlFor="savingsRate" className="flex items-center gap-1">
                                 Savings Rate (%)
                                 <TooltipProvider>
@@ -193,7 +195,7 @@ function Goals() {
                                 </Tooltip>
                                 </TooltipProvider>
                             </Label>
-                            <div className="relative">
+                            <div className="relative mt-2">
                                 <Input 
                                 id="savingsRate" 
                                 name="savingsRate" 
@@ -205,9 +207,9 @@ function Goals() {
                                 />
                                 <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             </div>
-                            {profileErrors?.savingsRate && <p className="text-sm font-medium text-destructive">{profileErrors.savingsRate[0]}</p>}
+                            {profileErrors?.savingsRate && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.savingsRate[0]}</p>}
                         </div>
-                        <div className="space-y-2">
+                        <div>
                             <Label htmlFor="totalDebt" className="flex items-center gap-1">
                                 Current Total Debt
                                 <TooltipProvider>
@@ -226,10 +228,11 @@ function Goals() {
                                 name="totalDebt" 
                                 type="number" 
                                 placeholder="e.g. 10000"
+                                className="mt-2"
                                 value={totalDebt ?? ''}
                                 onChange={(e) => setTotalDebt(e.target.value ? parseFloat(e.target.value) : null)}
                             />
-                            {profileErrors?.totalDebt && <p className="text-sm font-medium text-destructive">{profileErrors.totalDebt[0]}</p>}
+                            {profileErrors?.totalDebt && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.totalDebt[0]}</p>}
                         </div>
                     </div>
                 </CardContent>
@@ -330,3 +333,4 @@ function Goals() {
       </main>
     </div>
   );
+}
