@@ -1,26 +1,47 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Default to denying all reads and writes
+
+    // Global default deny (optional; more specific rules below will still apply)
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Allow users to read and write to their own user document
-    // This allows them to manage their own profile information (e.g. age)
-    // A user can create their document, but cannot create for others
+    // Users can manage only their own user doc
     match /users/{userId} {
+      // Create only your own user doc
+      allow create: if request.auth != null && request.auth.uid == userId;
+
+      // Read/update/delete only your own user doc
       allow read, update, delete: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null;
+
+      // (Optional) Basic schema validation on create/update
+      function isValidUser() {
+        // Example fields: adjust to your schema
+        return
+          (!('age' in request.resource.data) || request.resource.data.age is int) &&
+          (!('displayName' in request.resource.data) || request.resource.data.displayName is string) &&
+          // Prevent clients from spoofing ownership fields if you store one
+          (!('uid' in request.resource.data) || request.resource.data.uid == userId);
+      }
+
+      allow create, update: if isValidUser() && request.auth != null && request.auth.uid == userId;
     }
 
-    // Allow users to manage their own financial plans
-    // This includes creating, reading, updating, and deleting plans
+    // Plans subcollection — owner-only access
     match /users/{userId}/plans/{planId} {
-      allow read, write, create, delete: if request.auth != null && request.auth.uid == userId;
+      allow create, read, update, delete: if request.auth != null && request.auth.uid == userId;
+
+      // (Optional) Example validation for plan docs
+      function isValidPlan() {
+        return
+          ('name' in request.resource.data && request.resource.data.name is string) &&
+          (!('amount' in request.resource.data) || request.resource.data.amount is number) &&
+          (!('userId' in request.resource.data) || request.resource.data.userId == userId);
+      }
+
+      allow create, update: if isValidPlan() && request.auth != null && request.auth.uid == userId;
     }
   }
 }
