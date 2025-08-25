@@ -3,45 +3,59 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Global default deny (optional; more specific rules below will still apply)
+    // Default deny (optional; more-specific matches override)
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Users can manage only their own user doc
+    // Users collection: profile for each uid
     match /users/{userId} {
-      // Create only your own user doc
-      allow create: if request.auth != null && request.auth.uid == userId;
-
-      // Read/update/delete only your own user doc
-      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
-
-      // (Optional) Basic schema validation on create/update
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      function isOwner() {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+      // Make email match the auth token (optional but recommended)
+      function emailMatchesAuth() {
+        return !('email' in request.resource.data)
+               || (request.auth.token.email != null
+                   && request.resource.data.email == request.auth.token.email);
+      }
+      // Validate allowed fields and types (adjust to your schema)
       function isValidUser() {
-        // Example fields: adjust to your schema
-        return
-          (!('age' in request.resource.data) || request.resource.data.age is int) &&
-          (!('displayName' in request.resource.data) || request.resource.data.displayName is string) &&
-          // Prevent clients from spoofing ownership fields if you store one
-          (!('uid' in request.resource.data) || request.resource.data.uid == userId);
+        // Disallow any password field from the client
+        return !('password' in request.resource.data)
+          // whitelist basic profile fields you expect
+          && request.resource.data.keys().hasOnly(['email','age','displayName','createdAt','updatedAt'])
+          // type checks
+          && (!('email' in request.resource.data) || request.resource.data.email is string)
+          && (!('displayName' in request.resource.data) || request.resource.data.displayName is string)
+          && (!('age' in request.resource.data) || (request.resource.data.age is int && request.resource.data.age >= 13 && request.resource.data.age <= 120))
+          // server timestamps should be set with FieldValue.serverTimestamp() on the client
+          && (!('createdAt' in request.resource.data) || request.resource.data.createdAt == request.time)
+          && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt == request.time);
       }
 
-      allow create, update: if isValidUser() && request.auth != null && request.auth.uid == userId;
+      // Create only your own doc; update/delete only your own doc
+      allow create: if isOwner() && isValidUser() && emailMatchesAuth();
+      allow read, update, delete: if isOwner() && isValidUser() && emailMatchesAuth();
     }
 
-    // Plans subcollection — owner-only access
+    // Plans subcollection tied to owner
     match /users/{userId}/plans/{planId} {
-      allow create, read, update, delete: if request.auth != null && request.auth.uid == userId;
-
-      // (Optional) Example validation for plan docs
-      function isValidPlan() {
-        return
-          ('name' in request.resource.data && request.resource.data.name is string) &&
-          (!('amount' in request.resource.data) || request.resource.data.amount is number) &&
-          (!('userId' in request.resource.data) || request.resource.data.userId == userId);
+      function isOwner() {
+        return request.auth != null && request.auth.uid == userId;
       }
-
-      allow create, update: if isValidPlan() && request.auth != null && request.auth.uid == userId;
+      function isValidPlan() {
+        return request.resource.data.keys().hasOnly(['name','amount','notes','createdAt','updatedAt'])
+          && ('name' in request.resource.data && request.resource.data.name is string)
+          && (!('amount' in request.resource.data) || request.resource.data.amount is number)
+          && (!('notes' in request.resource.data) || request.resource.data.notes is string)
+          && (!('createdAt' in request.resource.data) || request.resource.data.createdAt == request.time)
+          && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt == request.time);
+      }
+      allow create, read, update, delete: if isOwner() && isValidPlan();
     }
   }
 }
