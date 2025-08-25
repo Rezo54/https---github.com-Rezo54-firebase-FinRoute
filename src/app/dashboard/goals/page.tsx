@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useActionState, Suspense } from 'react';
@@ -331,5 +330,3 @@ function Goals() {
       </main>
     </div>
   );
-
-    
