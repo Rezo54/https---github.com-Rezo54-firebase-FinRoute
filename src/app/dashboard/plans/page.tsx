@@ -6,9 +6,6 @@ import { Header } from "@/components/layout/header";
 import { DashboardTabs } from '@/components/dashboard/dashboard-tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, parseISO } from 'date-fns';
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
-import { getSession } from '@/lib/session';
-import { db } from '@/lib/firebase';
 import {
   Accordion,
   AccordionContent,
@@ -16,9 +13,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Loader2 } from 'lucide-react';
-import { getAdminDb } from '@/lib/firebase-admin';
 
-
+// This is a client-side type. The server-side fetching will be done in a server action.
 type SavedPlan = {
     id: string;
     createdAt: string;
@@ -27,21 +23,35 @@ type SavedPlan = {
     goals: any[];
 }
 
-async function getSavedPlans() {
+// We need a server action to fetch data securely.
+async function getSavedPlansAction(): Promise<SavedPlan[]> {
+    'use server';
+    const { getSession } = await import('@/lib/session');
+    const { getAdminDb } = await import('@/lib/firebase-admin');
+
     const session = await getSession();
     if (!session?.uid) return [];
     
-    const adminDb = getAdminDb();
-    const plansRef = adminDb.collection('users').doc(session.uid).collection('plans');
-    const q = plansRef.orderBy('createdAt', 'desc');
-    const querySnapshot = await q.get();
-    
-    return querySnapshot.docs.map(doc => {
-      const data = doc.data();
-      // Firestore timestamp needs to be converted
-      const createdAt = new Date(data.createdAt).toISOString();
-      return { id: doc.id, ...data, createdAt } as SavedPlan;
-    });
+    try {
+        const adminDb = getAdminDb();
+        const plansRef = adminDb.collection('users').doc(session.uid).collection('plans');
+        const q = plansRef.orderBy('createdAt', 'desc');
+        const querySnapshot = await q.get();
+        
+        return querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return { 
+                id: doc.id, 
+                createdAt: data.createdAt,
+                plan: data.plan,
+                keyMetrics: data.keyMetrics,
+                goals: data.goals,
+            } as SavedPlan;
+        });
+    } catch (error) {
+        console.error("Failed to fetch saved plans:", error);
+        return [];
+    }
 }
 
 export default function SavedPlansPage() {
@@ -57,7 +67,7 @@ function SavedPlans() {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        getSavedPlans().then(plans => {
+        getSavedPlansAction().then(plans => {
             setSavedPlans(plans);
             setIsLoading(false);
         }).catch(err => {
