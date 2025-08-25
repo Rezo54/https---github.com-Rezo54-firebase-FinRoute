@@ -8,7 +8,7 @@ import { redirect } from 'next/navigation';
 const goalSchema = z.object({
   id: z.string(),
   name: z.string().min(1, "Goal name is required."),
-  description: z.string().optional(),
+  description: z.string().optional().transform(val => val === '' ? undefined : val),
   targetAmount: z.coerce.number().min(1, "Target amount must be greater than 0."),
   currentAmount: z.coerce.number().min(0, "Current amount must be a positive number."),
   targetDate: z.string().min(1, "Target date is required."),
@@ -31,7 +31,7 @@ const formSchema = z.object({
   isFirstPlan: z.coerce.boolean(),
 });
 
-type State = {
+export type PlanGenerationState = {
   message: string;
   errors?: z.ZodError<any>['formErrors'] | null;
   plan?: string | null;
@@ -43,6 +43,13 @@ type State = {
     targetDate: string;
     icon: string;
   }[] | null;
+  keyMetrics?: {
+    netWorth: number;
+    savingsRate: number;
+    debtToIncome: number;
+    totalDebt: number;
+    monthlyNetSalary: number;
+  } | null;
   newAchievement?: {
     title: string;
     icon: string;
@@ -104,10 +111,9 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
 }
 
 
-export async function generatePlan(prevState: State, formData: FormData): Promise<State> {
+export async function generatePlan(prevState: PlanGenerationState, formData: FormData): Promise<PlanGenerationState> {
   try {
     const rawData: { [key: string]: any } = {};
-    const goalsData: any[] = [];
     const goalEntries: { [key: string]: any } = {};
 
     for (const [key, value] of formData.entries()) {
@@ -122,14 +128,7 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
       }
     }
     
-    for (const id in goalEntries) {
-      goalsData.push(goalEntries[id]);
-    }
-    
-    rawData.goals = goalsData.map(g => ({
-        ...g,
-        description: g.description === '' ? undefined : g.description,
-    }));
+    rawData.goals = Object.values(goalEntries);
 
 
     const validatedFields = formSchema.safeParse(rawData);
@@ -176,13 +175,29 @@ export async function generatePlan(prevState: State, formData: FormData): Promis
       }
     }
 
-    return {
+    const finalState: PlanGenerationState = {
       message: 'success',
       errors: null,
       plan: result.plan,
       goals: result.goals,
+      keyMetrics: {
+        netWorth,
+        savingsRate,
+        debtToIncome,
+        totalDebt,
+        monthlyNetSalary,
+      },
       newAchievement: isFirstPlan ? { title: 'First Planner', icon: 'Award' } : null,
     };
+
+    // Since we are redirecting, we can't pass state directly.
+    // A common pattern is to store it somewhere the client can pick it up from, like cookies or localStorage.
+    // For this implementation, we'll use a redirect and the client will fetch the state.
+    // A better implementation would use a client-side data store that's updated after the action.
+
+    return finalState;
+
+
   } catch (error) {
     console.error(error);
     return {

@@ -10,19 +10,19 @@ const currencySymbols: { [key: string]: string } = {
 interface KeyMetricsProps {
   currency: string;
   data: {
-    netWorth: number | null;
-    savingsRate: number | null;
-    debtToIncome: number;
-    totalDebt: number | null;
-    monthlyNetSalary: number | null;
+    netWorth?: number | null;
+    savingsRate?: number | null;
+    debtToIncome?: number | null;
+    totalDebt?: number | null;
+    monthlyNetSalary?: number | null;
   } | null;
 }
 
 export function KeyMetrics({ currency, data }: KeyMetricsProps) {
   const symbol = currencySymbols[currency] || '$';
 
-  const formatCurrency = (value: number | null) => {
-    if (value === null || isNaN(value)) {
+  const formatCurrency = (value: number | null | undefined) => {
+    if (value === null || value === undefined || isNaN(value)) {
       return <Skeleton className="h-6 w-[150px]" />;
     }
     return new Intl.NumberFormat('en-US', {
@@ -33,12 +33,47 @@ export function KeyMetrics({ currency, data }: KeyMetricsProps) {
     }).format(value);
   };
   
-  const renderMetric = (value: number | null, unit?: string, icon?: React.ReactNode, label?: string) => {
-     if (value === null || isNaN(value)) {
+  const renderMetric = (value: number | null | undefined, unit?: string) => {
+     if (value === null || value === undefined || isNaN(value)) {
        return <Skeleton className="h-6 w-[100px]" />;
     }
     return <p className="text-2xl font-bold">{unit === '$' ? formatCurrency(value) : `${value}${unit}`}</p>;
   }
+
+  const metrics = [
+      {
+          label: "Net Worth",
+          value: data?.netWorth,
+          unit: '$',
+          icon: Wallet,
+          color: "text-primary",
+          bg: "bg-primary/10"
+      },
+      {
+          label: "Savings Rate",
+          value: data?.savingsRate,
+          unit: '%',
+          icon: PiggyBank,
+          color: "text-accent-foreground",
+          bg: "bg-accent/10"
+      },
+      {
+          label: "Monthly Net Salary",
+          value: data?.monthlyNetSalary,
+          unit: '$',
+          icon: HandCoins,
+          color: "text-primary",
+          bg: "bg-primary/10"
+      },
+      {
+          label: "Total Debt",
+          value: data?.totalDebt,
+          unit: '$',
+          icon: Landmark,
+          color: "text-destructive",
+          bg: "bg-destructive/10"
+      }
+  ]
 
 
   return (
@@ -47,45 +82,18 @@ export function KeyMetrics({ currency, data }: KeyMetricsProps) {
         <CardTitle className="font-headline">Key Metrics</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-6">
-        <div className="flex items-center gap-4">
-          <div className="rounded-lg bg-primary/10 p-3 text-primary">
-            <Wallet className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Net Worth</p>
-            {renderMetric(data?.netWorth ?? null, '$')}
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="rounded-lg bg-accent/10 p-3 text-accent">
-            <PiggyBank className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Savings Rate</p>
-            {renderMetric(data?.savingsRate ?? null, '%')}
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="rounded-lg bg-primary/10 p-3 text-primary">
-            <HandCoins className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Monthly Net Salary</p>
-             {renderMetric(data?.monthlyNetSalary ?? null, '$')}
-          </div>
-        </div>
-         <div className="flex items-center gap-4">
-          <div className="rounded-lg bg-destructive/10 p-3 text-destructive">
-            <Landmark className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Total Debt</p>
-             {renderMetric(data?.totalDebt ?? null, '$')}
-          </div>
-        </div>
+        {metrics.map((metric, index) => (
+             <div key={index} className="flex items-center gap-4">
+                <div className={`rounded-lg p-3 ${metric.bg} ${metric.color}`}>
+                    <metric.icon className="h-6 w-6" />
+                </div>
+                <div>
+                    <p className="text-sm text-muted-foreground">{metric.label}</p>
+                    {renderMetric(metric.value, metric.unit)}
+                </div>
+            </div>
+        ))}
       </CardContent>
     </Card>
   );
 }
-
-    
