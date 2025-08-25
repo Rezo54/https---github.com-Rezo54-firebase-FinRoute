@@ -97,7 +97,7 @@ function Goals() {
   
   const handleAddGoal = () => {
     if (newGoal.name && newGoal.targetAmount > 0 && newGoal.targetDate) {
-      setFormGoals([...formGoals, { ...newGoal, id: Date.now().toString() }]);
+      setFormGoals([...formGoals, { ...newGoal, id: Date.now().toString(), description: newGoal.description || undefined }]);
       setNewGoal({ name: '', targetAmount: 0, currentAmount: 0, targetDate: '', description: '' });
     } else {
       toast({
@@ -142,7 +142,7 @@ function Goals() {
                     <CardTitle>Your Profile</CardTitle>
                     <CardDescription>Tell us about your current financial situation.</CardDescription>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <CardContent className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                       <Label htmlFor="netWorth" className="flex items-center gap-1">
                           Net Worth
