@@ -162,6 +162,7 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
   if (!session?.uid) {
     redirect('/');
   }
+  const adminDb = getAdminDb();
 
   try {
     const rawData: { [key: string]: any } = {};
@@ -196,7 +197,7 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
     const { netWorth, savingsRate, totalDebt, monthlyNetSalary, goals, currency, isFirstPlan } = validatedFields.data;
     
     // Get user age from Firestore
-    const userDoc = await getDoc(doc(db, 'users', session.uid));
+    const userDoc = await adminDb.collection('users').doc(session.uid).get();
     const userData = userDoc.data();
     if (!userData) {
       return { message: "User profile not found.", errors: null, plan: null };
@@ -248,7 +249,7 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
         createdAt: new Date().toISOString(),
         currency: currency,
     };
-    await addDoc(collection(db, "users", session.uid, "plans"), planToSave);
+    await adminDb.collection("users").doc(session.uid).collection("plans").add(planToSave);
 
     const finalState: PlanGenerationState = {
       message: 'success',
@@ -297,10 +298,11 @@ export async function savePlan(prevState: SavePlanState, formData: FormData): Pr
   }
   
   const { planId } = validatedFields.data;
+  const adminDb = getAdminDb();
 
   try {
-      const planRef = doc(db, 'users', session.uid, 'plans', planId);
-      await setDoc(planRef, { saved: true }, { merge: true });
+      const planRef = adminDb.collection('users').doc(session.uid).collection('plans').doc(planId);
+      await planRef.set({ saved: true }, { merge: true });
       return { message: 'success' };
   } catch (error) {
       console.error("Failed to save plan:", error);
@@ -314,10 +316,11 @@ export async function getDashboardState() {
   if (!session?.uid) {
     redirect('/');
   }
+  const adminDb = getAdminDb();
 
-  const plansRef = collection(db, 'users', session.uid, 'plans');
-  const q = query(plansRef, orderBy('createdAt', 'desc'));
-  const querySnapshot = await getDocs(q);
+  const plansRef = adminDb.collection('users').doc(session.uid).collection('plans');
+  const q = plansRef.orderBy('createdAt', 'desc').limit(1);
+  const querySnapshot = await q.get();
 
   if (querySnapshot.empty) {
     return { message: 'No plan found', plan: null, goals: null, keyMetrics: null };
@@ -325,7 +328,7 @@ export async function getDashboardState() {
   
   const latestPlan = querySnapshot.docs[0].data();
   
-  const planDate = latestPlan.createdAt.toDate ? latestPlan.createdAt.toDate() : new Date(latestPlan.createdAt);
+  const planDate = new Date(latestPlan.createdAt);
 
   return {
     message: 'success',
@@ -361,9 +364,11 @@ export async function saveProfile(prevState: ProfileState, formData: FormData): 
   if (!validatedFields.success) {
     return { message: 'Invalid data', errors: validatedFields.error.flatten() };
   }
+  
+  const adminDb = getAdminDb();
 
   try {
-    await setDoc(doc(db, 'users', session.uid), { profile: validatedFields.data }, { merge: true });
+    await adminDb.collection('users').doc(session.uid).set({ profile: validatedFields.data }, { merge: true });
     return { message: 'success' };
   } catch (error) {
     console.error("Failed to save profile: ", error);
@@ -377,7 +382,8 @@ export async function getProfile() {
   if (!session?.uid) {
     return null;
   }
-  const userDoc = await getDoc(doc(db, 'users', session.uid));
+  const adminDb = getAdminDb();
+  const userDoc = await adminDb.collection('users').doc(session.uid).get();
   const userData = userDoc.data();
   return userData?.profile ?? null;
 }
@@ -387,10 +393,11 @@ export async function updateGoal(goalName: string, newAmount: number) {
     if (!session?.uid) {
         redirect('/');
     }
+    const adminDb = getAdminDb();
 
-    const plansRef = collection(db, 'users', session.uid, 'plans');
-    const q = query(plansRef, orderBy('createdAt', 'desc'));
-    const querySnapshot = await getDocs(q);
+    const plansRef = adminDb.collection('users').doc(session.uid).collection('plans');
+    const q = plansRef.orderBy('createdAt', 'desc').limit(1);
+    const querySnapshot = await q.get();
 
     if (!querySnapshot.empty) {
         const latestPlanDoc = querySnapshot.docs[0];
@@ -398,7 +405,7 @@ export async function updateGoal(goalName: string, newAmount: number) {
         const updatedGoals = latestPlanData.goals.map((g: any) =>
             g.name === goalName ? { ...g, currentAmount: newAmount } : g
         );
-        await updateDoc(latestPlanDoc.ref, { goals: updatedGoals });
+        await latestPlanDoc.ref.update({ goals: updatedGoals });
     }
 }
 
@@ -407,15 +414,16 @@ export async function deleteGoal(goalName: string) {
     if (!session?.uid) {
         redirect('/');
     }
+    const adminDb = getAdminDb();
 
-    const plansRef = collection(db, 'users', session.uid, 'plans');
-    const q = query(plansRef, orderBy('createdAt', 'desc'));
-    const querySnapshot = await getDocs(q);
+    const plansRef = adminDb.collection('users').doc(session.uid).collection('plans');
+    const q = plansRef.orderBy('createdAt', 'desc').limit(1);
+    const querySnapshot = await q.get();
     
     if (!querySnapshot.empty) {
         const latestPlanDoc = querySnapshot.docs[0];
         const latestPlanData = latestPlanDoc.data();
         const updatedGoals = latestPlanData.goals.filter((g: any) => g.name !== goalName);
-        await updateDoc(latestPlanDoc.ref, { goals: updatedGoals });
+        await latestPlanDoc.ref.update({ goals: updatedGoals });
     }
 }

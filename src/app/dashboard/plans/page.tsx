@@ -16,6 +16,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Loader2 } from 'lucide-react';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 
 type SavedPlan = {
@@ -29,15 +30,16 @@ type SavedPlan = {
 async function getSavedPlans() {
     const session = await getSession();
     if (!session?.uid) return [];
-
-    const plansRef = collection(db, 'users', session.uid, 'plans');
-    const q = query(plansRef, orderBy('createdAt', 'desc'));
-    const querySnapshot = await getDocs(q);
+    
+    const adminDb = getAdminDb();
+    const plansRef = adminDb.collection('users').doc(session.uid).collection('plans');
+    const q = plansRef.orderBy('createdAt', 'desc');
+    const querySnapshot = await q.get();
     
     return querySnapshot.docs.map(doc => {
       const data = doc.data();
       // Firestore timestamp needs to be converted
-      const createdAt = data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt;
+      const createdAt = new Date(data.createdAt).toISOString();
       return { id: doc.id, ...data, createdAt } as SavedPlan;
     });
 }
