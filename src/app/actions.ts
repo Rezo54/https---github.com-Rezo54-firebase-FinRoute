@@ -3,7 +3,6 @@
 
 import { financialPlanGenerator, type FinancialPlanInput, type FinancialPlanOutput } from '@/ai/flows/financial-plan-generator';
 import { z } from 'zod';
-import { redirect } from 'next/navigation';
 
 const goalSchema = z.object({
   id: z.string(),
@@ -157,7 +156,7 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
     const input: FinancialPlanInput = {
       age: age,
       currency: currencySymbols[currency] || currency,
-      goals: goals,
+      goals: goals.map(g => ({...g, description: g.description || undefined })),
       keyMetrics: {
         netWorth: netWorth,
         savingsRate: savingsRate,
@@ -189,11 +188,6 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
       },
       newAchievement: isFirstPlan ? { title: 'First Planner', icon: 'Award' } : null,
     };
-
-    // Since we are redirecting, we can't pass state directly.
-    // A common pattern is to store it somewhere the client can pick it up from, like cookies or localStorage.
-    // For this implementation, we'll use a redirect and the client will fetch the state.
-    // A better implementation would use a client-side data store that's updated after the action.
 
     return finalState;
 

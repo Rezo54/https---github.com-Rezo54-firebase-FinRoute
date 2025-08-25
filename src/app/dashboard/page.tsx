@@ -2,9 +2,8 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { useFormState } from 'react-dom';
 import { useToast } from "@/hooks/use-toast";
-import { generatePlan, type FinancialPlanOutput } from '@/app/actions';
+import { type FinancialPlanOutput } from '@/app/actions';
 
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +27,7 @@ function getInitialState() {
             message: '',
             plan: null,
             goals: null,
+            keyMetrics: null,
             newAchievement: null,
         };
     }
@@ -38,13 +38,14 @@ function getInitialState() {
             // We don't want to persist errors or messages
             return { ...parsed, message: '', errors: null };
         } catch (e) {
-            return { message: '', plan: null, goals: null, newAchievement: null };
+            return { message: '', plan: null, goals: null, keyMetrics: null, newAchievement: null };
         }
     }
     return {
         message: '',
         plan: null,
         goals: null,
+        keyMetrics: null,
         newAchievement: null,
     };
 }
@@ -70,25 +71,37 @@ function Dashboard() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
     useEffect(() => {
-        const storedState = localStorage.getItem('dashboardState');
-        if (storedState) {
-            try {
-                const parsedState = JSON.parse(storedState);
-                setState(parsedState);
-                setGoals(parsedState.goals ?? []);
-                
-                if (parsedState.newAchievement) {
-                    setAchievements(prev => {
-                        if (!prev.some(ach => ach.title === parsedState.newAchievement.title)) {
-                            return [...prev, parsedState.newAchievement];
-                        }
-                        return prev;
-                    });
+        const handleStorageChange = () => {
+            const storedState = localStorage.getItem('dashboardState');
+            if (storedState) {
+                try {
+                    const parsedState = JSON.parse(storedState);
+                    setState(parsedState);
+                    setGoals(parsedState.goals ?? []);
+                    
+                    if (parsedState.newAchievement) {
+                        setAchievements(prev => {
+                            if (!prev.some(ach => ach.title === parsedState.newAchievement.title)) {
+                                return [...prev, parsedState.newAchievement];
+                            }
+                            return prev;
+                        });
+                    }
+                } catch (e) {
+                    console.error("Failed to parse state from localStorage", e);
                 }
-            } catch (e) {
-                console.error("Failed to parse state from localStorage", e);
             }
-        }
+        };
+
+        // Initial load
+        handleStorageChange();
+
+        // Listen for changes from other tabs/windows
+        window.addEventListener('storage', handleStorageChange);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+        };
     }, []);
 
   const handleGoalSelect = (goal: FinancialPlanOutput['goals'][0]) => {
@@ -150,27 +163,20 @@ function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start mt-8">
           
           <div className="lg:col-span-2 space-y-8">
-            {hasPlan ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Your Personalized Plan</CardTitle>
-                </CardHeader>
-                <CardContent className="prose prose-invert max-w-none">
-                  <div dangerouslySetInnerHTML={{ __html: state.plan.replace(/\n/g, '<br />') }} />
-                </CardContent>
-              </Card>
-            ) : (
+            {!hasPlan ? (
                 <Card>
                     <CardHeader>
                         <CardTitle>Welcome to FinRoute</CardTitle>
                     </CardHeader>
                     <CardContent className="flex items-center justify-center min-h-[200px]">
                         <div className="text-center text-muted-foreground">
-                            <p>Your generated financial plan will appear here.</p>
-                            <p>Go to the "Goals" tab to get started.</p>
+                            <p>Get started by setting your financial goals.</p>
+                            <p>Go to the "Goals" tab to create a new plan.</p>
                         </div>
                     </CardContent>
                 </Card>
+            ) : (
+              <GoalProgressChart data={goals} currency={currency} onGoalSelect={handleGoalSelect} />
             )}
           </div>
           
@@ -181,7 +187,6 @@ function Dashboard() {
             />
              {hasPlan && (
                 <>
-                    <GoalProgressChart data={goals} currency={currency} onGoalSelect={handleGoalSelect} />
                     <Achievements achievements={achievements} />
                     <Reminders goals={goals} />
                 </>
