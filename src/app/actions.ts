@@ -129,32 +129,31 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
   }
 
   const { email, password, age } = validatedFields.data;
+  const displayName = email.split('@')[0];
   
   try {
     const userRecord = await getAdminAuth().createUser({
       email: email,
       password: password,
-      displayName: email.split('@')[0], // Default display name
+      displayName: displayName,
     });
     
     await getAdminDb().collection("users").doc(userRecord.uid).set({
       email: email,
       age: age,
-      displayName: email.split('@')[0],
+      displayName: displayName,
       createdAt: new Date().toISOString(),
     });
 
     await createSession(userRecord.uid);
 
   } catch (error: any) {
-    console.error("Signup Error: ", error);
+    console.error(`Signup Error Code: ${error.code}`, error);
     let message = "An unexpected error occurred during signup.";
-    if (error && typeof error === 'object' && 'code' in error) {
-        if (error.code === 'auth/email-already-exists') {
-            message = 'This email address is already in use. Please try another one.';
-        } else if (error.code === 'auth/weak-password') {
-            message = 'The password is too weak. Please choose a stronger password.';
-        }
+    if (error?.code === 'auth/email-already-exists') {
+        message = 'This email address is already in use. Please try another one.';
+    } else if (error?.code === 'auth/weak-password') {
+        message = 'The password is too weak. Please choose a stronger password.';
     }
     return { 
         title: "Signup Failed", 
