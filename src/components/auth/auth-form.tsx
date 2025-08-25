@@ -4,14 +4,15 @@
 import { useSearchParams } from 'next/navigation';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { login, signup } from '@/app/actions';
+import { login, signup, pingServer } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Zap } from 'lucide-react';
 import { AuthFormSwitcher } from './auth-form-switcher';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { useToast } from '@/hooks/use-toast';
 
 const initialState = {
   title: '',
@@ -34,9 +35,26 @@ export function AuthForm() {
   const searchParams = useSearchParams();
   const mode = searchParams.get('mode') || 'login';
   const isSignUp = mode === 'signup';
+  const { toast } = useToast();
 
   const action = isSignUp ? signup : login;
   const [state, formAction] = useActionState(action, initialState as any);
+
+  const handleTestConnection = async () => {
+    try {
+      const result = await pingServer();
+      toast({
+        title: 'Server Test',
+        description: result.message,
+      });
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Server Test Failed',
+        description: err.message || 'An unknown error occurred.',
+      });
+    }
+  }
 
   return (
     <Card className="w-full max-w-sm bg-card border-border">
@@ -79,8 +97,16 @@ export function AuthForm() {
           )}
           <SubmitButton isSignUp={isSignUp} />
         </form>
-        <AuthFormSwitcher isSignUp={isSignUp} />
+        <div className="mt-4 flex flex-col gap-4">
+            <AuthFormSwitcher isSignUp={isSignUp} />
+             <Button variant="outline" onClick={handleTestConnection}>
+                <Zap className="mr-2 h-4 w-4" />
+                Test Server Connection
+            </Button>
+        </div>
       </CardContent>
     </Card>
   );
 }
+
+    

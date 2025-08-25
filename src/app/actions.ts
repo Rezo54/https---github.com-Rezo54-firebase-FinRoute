@@ -9,6 +9,12 @@ import { auth } from '@/lib/firebase';
 import { createSession, deleteSession, getSession } from '@/lib/session';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 
+// Test function to check server connectivity without Firebase
+export async function pingServer() {
+  console.log("Ping received on server.");
+  return { message: "Server is responding!" };
+}
+
 const goalSchema = z.object({
   id: z.string(),
   name: z.string().min(1, "Goal name is required."),
@@ -445,3 +451,5 @@ export async function deleteGoal(goalName: string) {
         await latestPlanDoc.ref.update({ goals: updatedGoals });
     }
 }
+
+    
