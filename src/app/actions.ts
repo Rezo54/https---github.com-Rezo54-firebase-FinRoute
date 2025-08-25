@@ -97,11 +97,16 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
   const { email, password } = validatedFields.data;
 
   try {
+    // IMPORTANT: Login happens on the client, but session creation is on the server.
+    // This action is called *after* a successful client-side login.
+    // We just need to get the UID and create a session.
+    // The actual sign-in with password happens on the client, this action just creates the server-side session cookie.
+    // For this example, we'll re-validate credentials to get UID, but a better flow would be to pass the token.
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     await createSession(userCredential.user.uid);
   } catch (error: any) {
     let message = 'An unexpected error occurred during login. Please try again.';
-    if (error.code === 'auth/invalid-credential') {
+    if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
         message = 'The email or password you entered is incorrect. Please double-check your credentials.';
     }
     return { title: 'Login Failed', message, errors: null };
@@ -142,16 +147,14 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
 
   } catch (error: any) {
     console.error("Signup Error: ", error);
-    let message = 'An unexpected error occurred.';
+    let message = 'An unexpected error occurred during signup.';
     let title = 'Signup Failed';
     
-    // Firebase Admin SDK errors have a 'code' property on the original error object
-    const firebaseError = error as { code?: string; message?: string };
-
-    if (firebaseError.code === 'auth/email-already-exists') {
+    // Firebase Admin SDK errors have a 'code' property
+    if (error.code === 'auth/email-already-exists') {
         message = 'This email address is already in use by another account.';
         title = 'Email In Use';
-    } else if (firebaseError.message?.includes("Firebase Admin SDK")) {
+    } else if (error.message?.includes("Firebase Admin SDK")) {
         message = "There's an issue with the server's configuration. Please contact support if this issue persists.";
         title = "Server Error";
     }
@@ -172,9 +175,9 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
   if (!session?.uid) {
     redirect('/');
   }
-  const adminDb = getAdminDb();
 
   try {
+    const adminDb = getAdminDb();
     const rawData: { [key: string]: any } = {};
     const goalEntries: { [key: string]: any } = {};
 
