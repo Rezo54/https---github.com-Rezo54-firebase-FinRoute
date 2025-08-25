@@ -451,5 +451,3 @@ export async function deleteGoal(goalName: string) {
         await latestPlanDoc.ref.update({ goals: updatedGoals });
     }
 }
-
-    
