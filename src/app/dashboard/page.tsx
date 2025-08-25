@@ -60,7 +60,7 @@ function Dashboard() {
   const { toast } = useToast();
   const [state, formAction] = useActionState(generatePlan, initialState);
 
-  const [currency, setCurrency] = useState('ZAR');
+  const [currency, setCurrency] = useState('USD');
   const [goals, setGoals] = useState<FinancialPlanOutput['goals']>([]);
   const [netWorth, setNetWorth] = useState<number | null>(null);
   const [savingsRate, setSavingsRate] = useState<number | null>(null);
@@ -109,7 +109,7 @@ function Dashboard() {
   
   const handleAddGoal = () => {
     if (newGoal.name && newGoal.targetAmount > 0 && newGoal.targetDate) {
-      setFormGoals([...formGoals, { ...newGoal, id: Date.now().toString() }]);
+      setFormGoals([...formGoals, { ...newGoal, id: Date.now().toString(), description: newGoal.description || undefined }]);
       setNewGoal({ name: '', targetAmount: 0, currentAmount: 0, targetDate: '', description: '' });
     } else {
       toast({
@@ -179,7 +179,7 @@ function Dashboard() {
                   <CardTitle>Your Profile</CardTitle>
                   <CardDescription>Tell us about your current financial situation.</CardDescription>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1">
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                 <div className="space-y-2">
                     <Label htmlFor="netWorth" className="flex items-center gap-1">
                         Net Worth
