@@ -179,8 +179,7 @@ function Dashboard() {
                   <CardTitle>Your Profile</CardTitle>
                   <CardDescription>Tell us about your current financial situation.</CardDescription>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                <div className="space-y-4">
+              <CardContent className="grid grid-cols-1 gap-y-4">
                   <div className="space-y-2">
                       <Label htmlFor="netWorth" className="flex items-center gap-1">
                           Net Worth
@@ -217,8 +216,6 @@ function Dashboard() {
                       />
                        {profileErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive">{profileErrors.monthlyNetSalary[0]}</p>}
                   </div>
-                </div>
-                <div className="space-y-4">
                   <div className="space-y-2">
                       <Label htmlFor="savingsRate" className="flex items-center gap-1">
                         Savings Rate (%)
@@ -272,7 +269,6 @@ function Dashboard() {
                       />
                       {profileErrors?.totalDebt && <p className="text-sm font-medium text-destructive">{profileErrors.totalDebt[0]}</p>}
                   </div>
-                </div>
               </CardContent>
             </Card>
             
