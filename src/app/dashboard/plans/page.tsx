@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/accordion";
 import { Loader2 } from 'lucide-react';
 import { getSession } from '@/lib/session';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { getAdminDb } from '@/lib/firebase-server';
 
 
 // This is a client-side type. The server-side fetching will be done in a server action.
@@ -33,8 +33,7 @@ async function getSavedPlansAction(): Promise<SavedPlan[]> {
     if (!session?.uid) return [];
     
     try {
-        const adminDb = getAdminDb();
-        const plansRef = adminDb.collection('users').doc(session.uid).collection('plans');
+        const plansRef = getAdminDb().collection('users').doc(session.uid).collection('plans');
         const q = plansRef.orderBy('createdAt', 'desc');
         const querySnapshot = await q.get();
         

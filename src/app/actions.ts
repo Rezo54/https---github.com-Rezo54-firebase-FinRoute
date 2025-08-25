@@ -8,7 +8,7 @@ import { auth } from '@/lib/firebase';
 import { createSession, deleteSession, getSession } from '@/lib/session';
 import type { FinancialPlanInput, FinancialPlanOutput } from '@/ai/flows/financial-plan-generator';
 import { financialPlanGenerator } from '@/ai/flows/financial-plan-generator';
-import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { getAdminAuth, getAdminDb } from '@/lib/firebase-server';
 
 // Test function to check server connectivity without Firebase
 export async function pingServer() {
@@ -131,16 +131,13 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
   const { email, password, age } = validatedFields.data;
   
   try {
-    const adminAuth = getAdminAuth();
-    const adminDb = getAdminDb();
-    
-    const userRecord = await adminAuth.createUser({
+    const userRecord = await getAdminAuth().createUser({
       email: email,
       password: password,
       displayName: email.split('@')[0], // Default display name
     });
     
-    await adminDb.collection("users").doc(userRecord.uid).set({
+    await getAdminDb().collection("users").doc(userRecord.uid).set({
       email: email,
       age: age,
       displayName: email.split('@')[0],
