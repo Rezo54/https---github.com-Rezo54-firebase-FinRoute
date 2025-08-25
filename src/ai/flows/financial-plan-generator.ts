@@ -21,7 +21,8 @@ const GoalSchema = z.object({
 });
 
 const GoalWithIconSchema = GoalSchema.extend({
-    icon: z.string().describe("The most relevant lucide-react icon name for the goal (e.g., 'Car', 'Home', 'GraduationCap', 'Plane', 'Gift').")
+    icon: z.string().describe("The most relevant lucide-react icon name for the goal (e.g., 'Car', 'Home', 'GraduationCap', 'Plane', 'Gift')."),
+    displayName: z.string().optional().describe("The user's display name.")
 });
 
 const FinancialPlanInputSchema = z.object({

@@ -16,6 +16,7 @@ import { Loader2 } from 'lucide-react';
 import { getSession } from '@/lib/session';
 import { getAdminDb } from '@/lib/firebase-admin';
 
+
 // This is a client-side type. The server-side fetching will be done in a server action.
 type SavedPlan = {
     id: string;
@@ -28,7 +29,6 @@ type SavedPlan = {
 // We need a server action to fetch data securely.
 async function getSavedPlansAction(): Promise<SavedPlan[]> {
     'use server';
-    
     const session = await getSession();
     if (!session?.uid) return [];
     

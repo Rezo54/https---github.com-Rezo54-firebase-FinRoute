@@ -1,12 +1,13 @@
 
 'use server';
 
-import { financialPlanGenerator, type FinancialPlanInput, type FinancialPlanOutput } from '@/ai/flows/financial-plan-generator';
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { createSession, deleteSession, getSession } from '@/lib/session';
+import type { FinancialPlanInput, FinancialPlanOutput } from '@/ai/flows/financial-plan-generator';
+import { financialPlanGenerator } from '@/ai/flows/financial-plan-generator';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 
 // Test function to check server connectivity without Firebase
@@ -103,11 +104,6 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
   const { email, password } = validatedFields.data;
 
   try {
-    // IMPORTANT: Login happens on the client, but session creation is on the server.
-    // This action is called *after* a successful client-side login.
-    // We just need to get the UID and create a session.
-    // The actual sign-in with password happens on the client, this action just creates the server-side session cookie.
-    // For this example, we'll re-validate credentials to get UID, but a better flow would be to pass the token.
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     await createSession(userCredential.user.uid);
   } catch (error: any) {
@@ -139,36 +135,35 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
     const adminDb = getAdminDb();
     
     const userRecord = await adminAuth.createUser({
-        email: email,
-        password: password,
+      email: email,
+      password: password,
+      displayName: email.split('@')[0], // Default display name
     });
     
     await adminDb.collection("users").doc(userRecord.uid).set({
-        email: email,
-        age: age,
-        createdAt: new Date().toISOString(),
+      email: email,
+      age: age,
+      displayName: email.split('@')[0],
+      createdAt: new Date().toISOString(),
     });
 
     await createSession(userRecord.uid);
 
   } catch (error: any) {
     console.error("Signup Error: ", error);
-    let message = 'An unexpected error occurred during signup.';
-    let title = 'Signup Failed';
-    
+    let message = "An unexpected error occurred during signup.";
     if (error && typeof error === 'object' && 'code' in error) {
-        if (error.code === 'auth/email-already-in-use') {
-            message = 'This email address is already in use by another account.';
-            title = 'Email In Use';
-        }
-    } else if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
-        if (error.message.includes("Firebase Admin SDK")) {
-            message = "There's an issue with the server's configuration. Please contact support if this issue persists.";
-            title = "Server Error";
+        if (error.code === 'auth/email-already-exists') {
+            message = 'This email address is already in use. Please try another one.';
+        } else if (error.code === 'auth/weak-password') {
+            message = 'The password is too weak. Please choose a stronger password.';
         }
     }
-
-    return { title, message, errors: null };
+    return { 
+        title: "Signup Failed", 
+        message: message, 
+        errors: null 
+    };
   }
   
   redirect('/dashboard');
@@ -188,7 +183,6 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
   }
 
   try {
-    const adminDb = getAdminDb();
     const rawData: { [key: string]: any } = {};
     const goalEntries: { [key: string]: any } = {};
 
@@ -220,14 +214,12 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
 
     const { netWorth, savingsRate, totalDebt, monthlyNetSalary, goals, currency, isFirstPlan } = validatedFields.data;
     
-    // Get user age from Firestore
-    const userDoc = await adminDb.collection('users').doc(session.uid).get();
+    const userDoc = await getAdminDb().collection('users').doc(session.uid).get();
     const userData = userDoc.data();
     if (!userData) {
       return { message: "User profile not found.", errors: null, plan: null };
     }
     
-    // Calculate Debt-to-Income Ratio
     const debtToIncome = monthlyNetSalary > 0 ? Math.round((totalDebt / monthlyNetSalary) * 100) : 0;
     
     const age = userData.age;
@@ -265,7 +257,6 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
         monthlyNetSalary,
     };
 
-    // Save the generated plan to firestore immediately
      const planToSave = {
         plan: result.plan,
         goals: result.goals,
@@ -273,7 +264,7 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
         createdAt: new Date().toISOString(),
         currency: currency,
     };
-    await adminDb.collection("users").doc(session.uid).collection("plans").add(planToSave);
+    await getAdminDb().collection("users").doc(session.uid).collection("plans").add(planToSave);
 
     const finalState: PlanGenerationState = {
       message: 'success',
@@ -322,10 +313,9 @@ export async function savePlan(prevState: SavePlanState, formData: FormData): Pr
   }
   
   const { planId } = validatedFields.data;
-  const adminDb = getAdminDb();
-
+  
   try {
-      const planRef = adminDb.collection('users').doc(session.uid).collection('plans').doc(planId);
+      const planRef = getAdminDb().collection('users').doc(session.uid).collection('plans').doc(planId);
       await planRef.set({ saved: true }, { merge: true });
       return { message: 'success' };
   } catch (error) {
@@ -340,9 +330,8 @@ export async function getDashboardState() {
   if (!session?.uid) {
     redirect('/');
   }
-  const adminDb = getAdminDb();
-
-  const plansRef = adminDb.collection('users').doc(session.uid).collection('plans');
+  
+  const plansRef = getAdminDb().collection('users').doc(session.uid).collection('plans');
   const q = plansRef.orderBy('createdAt', 'desc').limit(1);
   const querySnapshot = await q.get();
 
@@ -389,10 +378,8 @@ export async function saveProfile(prevState: ProfileState, formData: FormData): 
     return { message: 'Invalid data', errors: validatedFields.error.flatten() };
   }
   
-  const adminDb = getAdminDb();
-
   try {
-    await adminDb.collection('users').doc(session.uid).set({ profile: validatedFields.data }, { merge: true });
+    await getAdminDb().collection('users').doc(session.uid).set({ profile: validatedFields.data }, { merge: true });
     return { message: 'success' };
   } catch (error) {
     console.error("Failed to save profile: ", error);
@@ -406,8 +393,7 @@ export async function getProfile() {
   if (!session?.uid) {
     return null;
   }
-  const adminDb = getAdminDb();
-  const userDoc = await adminDb.collection('users').doc(session.uid).get();
+  const userDoc = await getAdminDb().collection('users').doc(session.uid).get();
   const userData = userDoc.data();
   return userData?.profile ?? null;
 }
@@ -417,9 +403,8 @@ export async function updateGoal(goalName: string, newAmount: number) {
     if (!session?.uid) {
         redirect('/');
     }
-    const adminDb = getAdminDb();
 
-    const plansRef = adminDb.collection('users').doc(session.uid).collection('plans');
+    const plansRef = getAdminDb().collection('users').doc(session.uid).collection('plans');
     const q = plansRef.orderBy('createdAt', 'desc').limit(1);
     const querySnapshot = await q.get();
 
@@ -438,9 +423,8 @@ export async function deleteGoal(goalName: string) {
     if (!session?.uid) {
         redirect('/');
     }
-    const adminDb = getAdminDb();
 
-    const plansRef = adminDb.collection('users').doc(session.uid).collection('plans');
+    const plansRef = getAdminDb().collection('users').doc(session.uid).collection('plans');
     const q = plansRef.orderBy('createdAt', 'desc').limit(1);
     const querySnapshot = await q.get();
     
