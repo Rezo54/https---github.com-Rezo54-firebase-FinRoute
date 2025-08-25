@@ -5,7 +5,7 @@ import { financialPlanGenerator, type FinancialPlanInput, type FinancialPlanOutp
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { createSession, deleteSession, getSession } from '@/lib/session';
 
@@ -128,12 +128,13 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
     await setDoc(doc(db, "users", user.uid), {
       email: user.email,
       age: age,
-      createdAt: new Date().toISOString(),
+      createdAt: serverTimestamp(),
     });
 
     await createSession(user.uid);
 
   } catch (error: any) {
+    console.error("Signup Error: ", error);
     let message = 'An unexpected error occurred.';
     if (error.code === 'auth/email-already-in-use') {
         message = 'This email address is already in use.';
@@ -145,7 +146,7 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
 }
 
 export async function logout() {
-  deleteSession();
+  await deleteSession();
   redirect('/');
 }
 
@@ -238,7 +239,7 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
         plan: result.plan,
         goals: result.goals,
         keyMetrics: keyMetrics,
-        createdAt: new Date().toISOString(),
+        createdAt: serverTimestamp(),
         currency: currency,
     };
     await addDoc(collection(db, "users", session.uid, "plans"), planToSave);
@@ -288,20 +289,25 @@ export async function savePlan(prevState: SavePlanState, formData: FormData): Pr
       errors: validatedFields.error.flatten(),
     };
   }
-  // In a real app, you would save this to a database.
-  // For this demo, we'll just log it and send a success message.
-  // The actual "saving" to localStorage will happen on the client
-  // to avoid passing large amounts of data between server and client again.
-  console.log("Plan saved action (placeholder):", validatedFields.data);
+  
+  const { planId } = validatedFields.data;
 
-  return { message: 'success' };
+  try {
+      const planRef = doc(db, 'users', session.uid, 'plans', planId);
+      await setDoc(planRef, { saved: true }, { merge: true });
+      return { message: 'success' };
+  } catch (error) {
+      console.error("Failed to save plan:", error);
+      return { message: 'Failed to save plan.' };
+  }
 }
 
 // New function to fetch the latest plan
 export async function getDashboardState() {
   const session = await getSession();
   if (!session?.uid) {
-    return { message: 'Not authenticated', plan: null, goals: null, keyMetrics: null };
+    redirect('/');
+    return;
   }
 
   const plansRef = collection(db, 'users', session.uid, 'plans');
@@ -405,3 +411,5 @@ export async function deleteGoal(goalName: string) {
         await setDoc(latestPlanDoc.ref, { goals: updatedGoals }, { merge: true });
     }
 }
+
+    
