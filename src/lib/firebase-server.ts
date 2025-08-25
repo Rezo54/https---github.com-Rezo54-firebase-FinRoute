@@ -1,53 +1,41 @@
-
+'use server';
 import 'server-only';
 import * as admin from 'firebase-admin';
 
-function normalizePrivateKey(raw?: string) {
-  if (!raw) return undefined;
-  let k = raw.trim();
+function normalizePrivateKey(k: string) {
+  // turn \r\n/\n escapes into real newlines and strip wrapping quotes
+  return k.replace(/^['"`]|['"`]$/g, '').replace(/\\r/g, '').replace(/\\n/g, '\n').replace(/\r/g, '');
+}
 
-  // strip one layer of wrapping quotes/backticks if present
-  k = k.replace(/^['"`]|['"`]$/g, '');
+function loadServiceAccount() {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  const b64 = process.env.FIREBASE_SERVICE_ACCOUNT_B64;
 
-  // turn escaped CR/LF into real newlines, remove stray CRs
-  k = k.replace(/\\r/g, '').replace(/\\n/g, '\n').replace(/\r/g, '');
-
-  // if there is no PEM header, try base64-decode
-  if (!k.includes('BEGIN') && /^[A-Za-z0-9+/=\s]+$/.test(k)) {
-    try { k = Buffer.from(k.replace(/\s+/g, ''), 'base64').toString('utf8'); } catch {}
-  }
-
-  // extract a clean PEM block if other text snuck in
-  const m = k.match(/-----BEGIN (?:RSA )?PRIVATE KEY-----[\s\S]+?-----END (?:RSA )?PRIVATE KEY-----/);
-  if (m) k = m[0];
-
-  return k;
+  if (!raw && !b64) return null;
+  const json = raw ?? Buffer.from(String(b64), 'base64').toString('utf8');
+  const sa = JSON.parse(json);
+  sa.private_key = normalizePrivateKey(sa.private_key);
+  return sa;
 }
 
 export function initializeFirebaseAdmin() {
   if (admin.apps.length) return;
 
-  const projectId  = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = normalizePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
-
-  if (!projectId || !clientEmail || !privateKey) {
-    console.error('[Admin init] Missing envs', { hasProjectId: !!projectId, hasClientEmail: !!clientEmail, hasPrivateKey: !!privateKey });
-    throw new Error('Missing FIREBASE_* env vars');
+  const sa = loadServiceAccount();
+  if (!sa) {
+    console.error('[Admin init] Missing FIREBASE_SERVICE_ACCOUNT or FIREBASE_SERVICE_ACCOUNT_B64 env var.');
+    throw new Error('Missing FIREBASE_SERVICE_ACCOUNT or FIREBASE_SERVICE_ACCOUNT_B64');
   }
 
   try {
-    admin.initializeApp({
-      credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
-    });
+    admin.initializeApp({ credential: admin.credential.cert(sa as admin.ServiceAccount) });
   } catch (err: any) {
-    const code = String(err?.code ?? '');
-    const msg  = String(err?.message ?? '');
-    const dup  = code === 'app/duplicate-app' || msg.includes('already exists');
-    console.error('[Admin init failed]', { code, msg, name: err?.name });
-    if (!dup) throw err; // in dev, surface the original parse error so you can fix the key
+    const msg = String(err?.message ?? '');
+    const dup = String(err?.code ?? '') === 'app/duplicate-app' || msg.includes('already exists');
+    console.error('[Admin init failed]', { code: err?.code, msg });
+    if (!dup) throw err; // surface real parse error in dev
   }
 }
 
-export const getAdminDb   = () => (initializeFirebaseAdmin(), admin.firestore());
+export const getAdminDb = () => (initializeFirebaseAdmin(), admin.firestore());
 export const getAdminAuth = () => (initializeFirebaseAdmin(), admin.auth());
