@@ -73,21 +73,10 @@ const loginSchema = z.object({
   password: z.string().min(1, { message: "Password is required." }),
 });
 
-const signupSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters long." }),
-  age: z.coerce.number().min(18, { message: "You must be at least 18 years old." }).max(100, { message: "Please enter a valid age."}),
-});
-
-
 type AuthState = {
   title?: string;
   message: string;
-  errors?: {
-    email?: string[];
-    password?: string[];
-    age?: string[];
-  } | null;
+  errors?: Record<string, string[]> | null;
 }
 
 export async function login(prevState: AuthState, formData: FormData): Promise<AuthState> {
@@ -117,49 +106,86 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
   redirect('/dashboard');
 }
 
-export async function signup(prevState: AuthState, formData: FormData): Promise<AuthState> {
-  const validatedFields = signupSchema.safeParse(Object.fromEntries(formData.entries()));
 
-  if (!validatedFields.success) {
-    return {
-      title: 'Invalid Form Data',
-      message: 'There was an issue with your submission. Please check the fields and try again.',
-      errors: validatedFields.error.flatten().fieldErrors,
-    };
+const signupSchemaRobust = z.object({
+  email: z.string().email(),
+  password: z.string().min(6, { message: "Password must be at least 6 characters long." }),
+  age: z.coerce.number().int().min(18).max(120),
+});
+
+function mapSignupError(code: string): AuthState {
+  // Map Firebase Admin Auth error codes to user-friendly messages
+  switch (code) {
+    case 'auth/email-already-exists':
+      return { title: 'Email in use', message: 'Try signing in instead.', errors: { email: ['Email already in use'] } };
+    case 'auth/weak-password':
+      return { title: 'Weak password', message: 'Use at least 6 characters.', errors: { password: ['Password is too weak'] } };
+    case 'auth/invalid-email':
+      return { title: 'Invalid email', message: 'Please check the address.', errors: { email: ['Invalid email address'] } };
+    case 'auth/operation-not-allowed':
+      return { title: 'Signup disabled', message: 'Email/password signups are disabled for this project.' };
+    default:
+      return { title: 'Signup failed', message: 'Something went wrong. Please try again.' };
+  }
+}
+
+export async function signup(_: AuthState, formData: FormData): Promise<AuthState> {
+  const parsed = signupSchemaRobust.safeParse({
+    email: formData.get('email'),
+    password: formData.get('password'),
+    age: formData.get('age'),
+  });
+
+  if (!parsed.success) {
+    const fe = parsed.error.flatten().fieldErrors;
+    return { title: 'Validation error', message: 'Fix the fields below.', errors: fe as Record<string, string[]> };
   }
 
-  const { email, password, age } = validatedFields.data;
+  const { email, password, age } = parsed.data;
   const displayName = email.split('@')[0];
-  
+
+  const authAdmin = getAdminAuth();
+  const dbAdmin = getAdminDb();
+
+  let uid: string | null = null;
+
   try {
-    const userRecord = await getAdminAuth().createUser({
-      email: email,
-      password: password,
-      displayName: displayName,
-    });
-    
-    await getAdminDb().collection("users").doc(userRecord.uid).set({
-      email: email,
-      age: age,
-      displayName: displayName,
+    // 1) Create Auth user (password never stored in Firestore)
+    const userRecord = await authAdmin.createUser({ email, password, displayName });
+    uid = userRecord.uid;
+
+    // 2) Create Firestore profile (server time; keep schema minimal)
+    await dbAdmin.doc(`users/${uid}`).set({
+      email,
+      displayName,
+      age,
       createdAt: new Date().toISOString(),
     });
-
+    
     await createSession(userRecord.uid);
 
-  } catch (error: any) {
-    console.error(`Signup Error Code: ${error.code}`, error);
-    let message = "An unexpected error occurred during signup.";
-    if (error?.code === 'auth/email-already-exists') {
-        message = 'This email address is already in use. Please try another one.';
-    } else if (error?.code === 'auth/weak-password') {
-        message = 'The password is too weak. Please choose a stronger password.';
+  } catch (err: any) {
+    const code = String(err?.code ?? '');
+    const state = mapSignupError(code);
+
+    // Detailed server logs (but don’t leak raw internals to the user)
+    console.error('Signup error', {
+      code,
+      message: err?.message,
+      uidAttempted: uid,
+      email,
+    });
+
+    // If Auth succeeded but Firestore failed, roll back the Auth user to avoid orphans
+    if (uid && code !== 'auth/email-already-exists') {
+      try {
+        await authAdmin.deleteUser(uid);
+      } catch (cleanupErr: any) {
+        console.error('Signup rollback failed', { cleanupErr: cleanupErr?.message, uid });
+      }
     }
-    return { 
-        title: "Signup Failed", 
-        message: message, 
-        errors: null 
-    };
+
+    return state;
   }
   
   redirect('/dashboard');
