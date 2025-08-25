@@ -4,10 +4,9 @@
 import { financialPlanGenerator, type FinancialPlanInput, type FinancialPlanOutput } from '@/ai/flows/financial-plan-generator';
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy, serverTimestamp, updateDoc, deleteDoc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { getAdminDb, getAdminAuth } from '@/lib/firebase-admin';
 import { createSession, deleteSession, getSession } from '@/lib/session';
 
 const goalSchema = z.object({
@@ -75,6 +74,7 @@ const signupSchema = z.object({
 
 
 type AuthState = {
+  title?: string;
   message: string;
   errors?: {
     email?: string[];
@@ -88,7 +88,8 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
 
   if (!validatedFields.success) {
     return {
-      message: 'Invalid form data.',
+      title: 'Invalid Form Data',
+      message: 'There was an issue with your submission. Please check the fields and try again.',
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
@@ -99,11 +100,11 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     await createSession(userCredential.user.uid);
   } catch (error: any) {
-    let message = 'An unexpected error occurred.';
+    let message = 'An unexpected error occurred during login. Please try again.';
     if (error.code === 'auth/invalid-credential') {
-        message = 'Invalid email or password. Please try again.';
+        message = 'The email or password you entered is incorrect. Please double-check your credentials.';
     }
-    return { message, errors: null };
+    return { title: 'Login Failed', message, errors: null };
   }
 
   redirect('/dashboard');
@@ -114,7 +115,8 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
 
   if (!validatedFields.success) {
     return {
-      message: 'Invalid form data.',
+      title: 'Invalid Form Data',
+      message: 'There was an issue with your submission. Please check the fields and try again.',
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
@@ -122,30 +124,38 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
   const { email, password, age } = validatedFields.data;
   
   try {
+    const adminAuth = getAdminAuth();
     const adminDb = getAdminDb();
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-
-    // Create a user document in Firestore using the Admin SDK
-    const userDocRef = adminDb.collection("users").doc(user.uid);
-    await userDocRef.set({
-        email: user.email,
+    
+    const userRecord = await adminAuth.createUser({
+        email: email,
+        password: password,
+    });
+    
+    await adminDb.collection("users").doc(userRecord.uid).set({
+        email: email,
         age: age,
         createdAt: new Date().toISOString(),
     });
 
-    await createSession(user.uid);
+    await createSession(userRecord.uid);
 
   } catch (error: any) {
     console.error("Signup Error: ", error);
     let message = 'An unexpected error occurred.';
-    if (error.code === 'auth/email-already-in-use') {
-        message = 'This email address is already in use.';
+    let title = 'Signup Failed';
+    
+    // Firebase Admin SDK errors have a 'code' property on the original error object
+    const firebaseError = error as { code?: string; message?: string };
+
+    if (firebaseError.code === 'auth/email-already-exists') {
+        message = 'This email address is already in use by another account.';
+        title = 'Email In Use';
+    } else if (firebaseError.message?.includes("Firebase Admin SDK")) {
+        message = "There's an issue with the server's configuration. Please contact support if this issue persists.";
+        title = "Server Error";
     }
-    if (error.message.includes('Firebase Admin')) {
-        message = 'Server configuration error. Please contact support.';
-    }
-    return { message, errors: null };
+    return { title, message, errors: null };
   }
   
   redirect('/dashboard');

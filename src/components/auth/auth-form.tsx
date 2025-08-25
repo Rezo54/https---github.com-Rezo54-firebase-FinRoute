@@ -14,6 +14,7 @@ import { AuthFormSwitcher } from './auth-form-switcher';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
 const initialState = {
+  title: '',
   message: '',
   errors: null,
 };
@@ -68,8 +69,9 @@ export function AuthForm() {
               <p className="text-sm font-medium text-destructive">{state.errors.password[0]}</p>
             )}
           </div>
-          {state?.message && (
+          {state?.message && state.message !== 'success' && (
              <Alert variant="destructive">
+                {state.title && <AlertTitle>{state.title}</AlertTitle>}
                 <AlertDescription>
                   {state.message}
                 </AlertDescription>

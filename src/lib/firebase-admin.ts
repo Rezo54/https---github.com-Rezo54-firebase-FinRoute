@@ -1,51 +1,53 @@
 
 import * as admin from 'firebase-admin';
 
-let adminDb: admin.firestore.Firestore | undefined;
-let adminAuth: admin.auth.Auth | undefined;
+let adminApp: admin.app.App;
 
-function initializeFirebaseAdmin() {
-    // Check if the required environment variables are set
+if (!admin.apps.length) {
     const hasCredentials =
-      process.env.FIREBASE_PROJECT_ID &&
-      process.env.FIREBASE_CLIENT_EMAIL &&
-      process.env.FIREBASE_PRIVATE_KEY;
+        process.env.FIREBASE_PROJECT_ID &&
+        process.env.FIREBASE_CLIENT_EMAIL &&
+        process.env.FIREBASE_PRIVATE_KEY;
 
-    if (admin.apps.length === 0 && hasCredentials) {
+    if (hasCredentials) {
         try {
-            admin.initializeApp({
+            adminApp = admin.initializeApp({
                 credential: admin.credential.cert({
                     projectId: process.env.FIREBASE_PROJECT_ID,
                     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-                    // Replace escaped newlines before parsing
                     privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
                 })
             });
-            adminDb = admin.firestore();
-            adminAuth = admin.auth();
         } catch (error: any) {
             console.error('Firebase admin initialization error', error.stack);
+            throw new Error("Server configuration error: Failed to initialize Firebase Admin SDK.");
+        }
+    } else {
+        // This will throw an error if called in an environment without credentials,
+        // which is the expected behavior for server actions that need it.
+        try {
+            adminApp = admin.initializeApp();
+        } catch (e) {
+            console.error("Firebase Admin SDK initialization failed. Credentials may be missing.");
+            // We don't throw here to allow client-side to still try to render.
+            // The functions below will throw if the SDK is needed but not available.
         }
     }
+} else {
+    adminApp = admin.app();
 }
 
-// Initialize on first import
-initializeFirebaseAdmin();
 
-function getAdminDb() {
-    if (!adminDb) {
-        initializeFirebaseAdmin();
-        if (!adminDb) throw new Error("Firebase Admin DB not initialized. Missing credentials?");
+export function getAdminDb() {
+    if (!adminApp) {
+        throw new Error("Firebase Admin App not initialized. Missing credentials?");
     }
-    return adminDb;
+    return adminApp.firestore();
 }
 
-function getAdminAuth() {
-    if (!adminAuth) {
-        initializeFirebaseAdmin();
-        if (!adminAuth) throw new Error("Firebase Admin Auth not initialized. Missing credentials?");
+export function getAdminAuth() {
+    if (!adminApp) {
+        throw new Error("Firebase Admin App not initialized. Missing credentials?");
     }
-    return adminAuth;
+    return adminApp.auth();
 }
-
-export { getAdminDb, getAdminAuth };
