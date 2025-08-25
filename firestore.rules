@@ -1,0 +1,26 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default to denying all reads and writes
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Allow users to read and write to their own user document
+    // This allows them to manage their own profile information (e.g. age)
+    // A user can create their document, but cannot create for others
+    match /users/{userId} {
+      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null;
+    }
+
+    // Allow users to manage their own financial plans
+    // This includes creating, reading, updating, and deleting plans
+    match /users/{userId}/plans/{planId} {
+      allow read, write, create, delete: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
