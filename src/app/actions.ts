@@ -115,7 +115,6 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
 }
 
 export async function signup(prevState: AuthState, formData: FormData): Promise<AuthState> {
-  // Dynamically import admin SDKs only when the function is executed.
   const { getAdminAuth } = await import('@/lib/firebase-admin');
   const { getAdminDb } = await import('@/lib/firebase-admin');
 
