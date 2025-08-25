@@ -33,8 +33,13 @@ async function getSavedPlans() {
     const plansRef = collection(db, 'users', session.uid, 'plans');
     const q = query(plansRef, orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
-
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SavedPlan));
+    
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      // Firestore timestamp needs to be converted
+      const createdAt = data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt;
+      return { id: doc.id, ...data, createdAt } as SavedPlan;
+    });
 }
 
 export default function SavedPlansPage() {
@@ -53,7 +58,10 @@ function SavedPlans() {
         getSavedPlans().then(plans => {
             setSavedPlans(plans);
             setIsLoading(false);
-        });
+        }).catch(err => {
+            console.error(err);
+            setIsLoading(false);
+        })
     }, []);
 
     if (isLoading) {

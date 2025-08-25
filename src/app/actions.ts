@@ -5,8 +5,9 @@ import { financialPlanGenerator, type FinancialPlanInput, type FinancialPlanOutp
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy, serverTimestamp, updateDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 import { createSession, deleteSession, getSession } from '@/lib/session';
 
 const goalSchema = z.object({
@@ -121,14 +122,20 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
   const { email, password, age } = validatedFields.data;
   
   try {
+    // Ensure admin SDK is initialized before using it
+    if (!adminDb) {
+        throw new Error("Firebase Admin SDK not initialized. Missing credentials?");
+    }
+
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Create a user document in Firestore
-    await setDoc(doc(db, "users", user.uid), {
-      email: user.email,
-      age: age,
-      createdAt: serverTimestamp(),
+    // Create a user document in Firestore using the Admin SDK
+    const userDocRef = adminDb.collection("users").doc(user.uid);
+    await userDocRef.set({
+        email: user.email,
+        age: age,
+        createdAt: new Date().toISOString(),
     });
 
     await createSession(user.uid);
@@ -138,6 +145,9 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
     let message = 'An unexpected error occurred.';
     if (error.code === 'auth/email-already-in-use') {
         message = 'This email address is already in use.';
+    }
+    if (error.message.includes('Firebase Admin SDK not initialized')) {
+        message = 'Server configuration error. Please contact support.';
     }
     return { message, errors: null };
   }
@@ -239,7 +249,7 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
         plan: result.plan,
         goals: result.goals,
         keyMetrics: keyMetrics,
-        createdAt: serverTimestamp(),
+        createdAt: new Date().toISOString(),
         currency: currency,
     };
     await addDoc(collection(db, "users", session.uid, "plans"), planToSave);
@@ -307,7 +317,6 @@ export async function getDashboardState() {
   const session = await getSession();
   if (!session?.uid) {
     redirect('/');
-    return;
   }
 
   const plansRef = collection(db, 'users', session.uid, 'plans');
@@ -319,6 +328,8 @@ export async function getDashboardState() {
   }
   
   const latestPlan = querySnapshot.docs[0].data();
+  
+  const planDate = latestPlan.createdAt.toDate ? latestPlan.createdAt.toDate() : new Date(latestPlan.createdAt);
 
   return {
     message: 'success',
@@ -326,6 +337,7 @@ export async function getDashboardState() {
     goals: latestPlan.goals,
     keyMetrics: latestPlan.keyMetrics,
     currency: latestPlan.currency,
+    createdAt: planDate.toISOString(),
   };
 }
 
@@ -390,7 +402,7 @@ export async function updateGoal(goalName: string, newAmount: number) {
         const updatedGoals = latestPlanData.goals.map((g: any) =>
             g.name === goalName ? { ...g, currentAmount: newAmount } : g
         );
-        await setDoc(latestPlanDoc.ref, { goals: updatedGoals }, { merge: true });
+        await updateDoc(latestPlanDoc.ref, { goals: updatedGoals });
     }
 }
 
@@ -408,8 +420,6 @@ export async function deleteGoal(goalName: string) {
         const latestPlanDoc = querySnapshot.docs[0];
         const latestPlanData = latestPlanDoc.data();
         const updatedGoals = latestPlanData.goals.filter((g: any) => g.name !== goalName);
-        await setDoc(latestPlanDoc.ref, { goals: updatedGoals }, { merge: true });
+        await updateDoc(latestPlanDoc.ref, { goals: updatedGoals });
     }
 }
-
-    
