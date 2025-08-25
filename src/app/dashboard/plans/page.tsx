@@ -13,6 +13,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Loader2 } from 'lucide-react';
+import { getSession } from '@/lib/session';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 // This is a client-side type. The server-side fetching will be done in a server action.
 type SavedPlan = {
@@ -26,9 +28,7 @@ type SavedPlan = {
 // We need a server action to fetch data securely.
 async function getSavedPlansAction(): Promise<SavedPlan[]> {
     'use server';
-    const { getSession } = await import('@/lib/session');
-    const { getAdminDb } = await import('@/lib/firebase-admin');
-
+    
     const session = await getSession();
     if (!session?.uid) return [];
     

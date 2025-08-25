@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { createSession, deleteSession, getSession } from '@/lib/session';
+import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 
 const goalSchema = z.object({
   id: z.string(),
@@ -115,9 +116,6 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
 }
 
 export async function signup(prevState: AuthState, formData: FormData): Promise<AuthState> {
-  const { getAdminAuth } = await import('@/lib/firebase-admin');
-  const { getAdminDb } = await import('@/lib/firebase-admin');
-
   const validatedFields = signupSchema.safeParse(Object.fromEntries(formData.entries()));
 
   if (!validatedFields.success) {
@@ -153,7 +151,7 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
     let title = 'Signup Failed';
     
     if (error && typeof error === 'object' && 'code' in error) {
-        if (error.code === 'auth/email-already-exists') {
+        if (error.code === 'auth/email-already-in-use') {
             message = 'This email address is already in use by another account.';
             title = 'Email In Use';
         }
@@ -178,7 +176,6 @@ export async function logout() {
 
 
 export async function generatePlan(prevState: PlanGenerationState, formData: FormData): Promise<PlanGenerationState> {
-  const { getAdminDb } = await import('@/lib/firebase-admin');
   const session = await getSession();
   if (!session?.uid) {
     redirect('/');
@@ -304,7 +301,6 @@ type SavePlanState = {
 }
 
 export async function savePlan(prevState: SavePlanState, formData: FormData): Promise<SavePlanState> {
-    const { getAdminDb } = await import('@/lib/firebase-admin');
     const session = await getSession();
     if (!session?.uid) {
         redirect('/');
@@ -334,7 +330,6 @@ export async function savePlan(prevState: SavePlanState, formData: FormData): Pr
 
 // New function to fetch the latest plan
 export async function getDashboardState() {
-  const { getAdminDb } = await import('@/lib/firebase-admin');
   const session = await getSession();
   if (!session?.uid) {
     redirect('/');
@@ -378,7 +373,6 @@ type ProfileState = {
 }
 
 export async function saveProfile(prevState: ProfileState, formData: FormData): Promise<ProfileState> {
-  const { getAdminDb } = await import('@/lib/firebase-admin');
   const session = await getSession();
   if (!session?.uid) {
     redirect('/');
@@ -402,7 +396,6 @@ export async function saveProfile(prevState: ProfileState, formData: FormData): 
 
 // Function to get user profile data
 export async function getProfile() {
-  const { getAdminDb } = await import('@/lib/firebase-admin');
   const session = await getSession();
   if (!session?.uid) {
     return null;
@@ -414,7 +407,6 @@ export async function getProfile() {
 }
 
 export async function updateGoal(goalName: string, newAmount: number) {
-    const { getAdminDb } = await import('@/lib/firebase-admin');
     const session = await getSession();
     if (!session?.uid) {
         redirect('/');
@@ -436,7 +428,6 @@ export async function updateGoal(goalName: string, newAmount: number) {
 }
 
 export async function deleteGoal(goalName: string) {
-    const { getAdminDb } = await import('@/lib/firebase-admin');
     const session = await getSession();
     if (!session?.uid) {
         redirect('/');
