@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useActionState, Suspense } from 'react';
@@ -141,100 +142,95 @@ function Goals() {
                     <CardTitle>Your Profile</CardTitle>
                     <CardDescription>Tell us about your current financial situation.</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <Label htmlFor="netWorth" className="flex items-center gap-1">
-                                Net Worth
-                                <TooltipProvider>
-                                    <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Your total assets minus your total liabilities.</p>
-                                    </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                            </Label>
-                            <Input 
-                                id="netWorth" 
-                                name="netWorth" 
-                                type="number" 
-                                placeholder="e.g. 50000" 
-                                className="mt-2"
-                                value={netWorth ?? ''} 
-                                onChange={(e) => setNetWorth(e.target.value ? parseFloat(e.target.value) : null)}
-                            />
-                            {profileErrors?.netWorth && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.netWorth[0]}</p>}
-                        </div>
-                        <div>
-                            <Label htmlFor="monthlyNetSalary">Monthly Net Salary</Label>
-                            <Input 
-                                id="monthlyNetSalary" 
-                                name="monthlyNetSalary" 
-                                type="number" 
-                                placeholder="e.g. 3000"
-                                className="mt-2"
-                                value={monthlyNetSalary ?? ''}
-                                onChange={(e) => setMonthlyNetSalary(e.target.value ? parseFloat(e.target.value) : null)} 
-                            />
-                            {profileErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.monthlyNetSalary[0]}</p>}
-                        </div>
-                        <div>
-                            <Label htmlFor="savingsRate" className="flex items-center gap-1">
-                                Savings Rate (%)
-                                <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                    <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                    <p>The percentage of your net income that you save.</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                                </TooltipProvider>
-                            </Label>
-                            <div className="relative mt-2">
-                                <Input 
-                                id="savingsRate" 
-                                name="savingsRate" 
-                                type="number" 
-                                placeholder="e.g. 15"
-                                className="pr-8"
-                                value={savingsRate ?? ''}
-                                onChange={(e) => setSavingsRate(e.target.value ? parseFloat(e.target.value) : null)}
-                                />
-                                <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            </div>
-                            {profileErrors?.savingsRate && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.savingsRate[0]}</p>}
-                        </div>
-                        <div>
-                            <Label htmlFor="totalDebt" className="flex items-center gap-1">
-                                Current Total Debt
-                                <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                    <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                    <p>The total amount of debt you currently have.</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                                </TooltipProvider>
-                            </Label>
-                            <Input 
-                                id="totalDebt" 
-                                name="totalDebt" 
-                                type="number" 
-                                placeholder="e.g. 10000"
-                                className="mt-2"
-                                value={totalDebt ?? ''}
-                                onChange={(e) => setTotalDebt(e.target.value ? parseFloat(e.target.value) : null)}
-                            />
-                            {profileErrors?.totalDebt && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.totalDebt[0]}</p>}
-                        </div>
-                    </div>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="netWorth" className="flex items-center gap-1">
+                        Net Worth
+                        <TooltipProvider>
+                            <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Your total assets minus your total liabilities.</p>
+                            </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </Label>
+                    <Input 
+                        id="netWorth" 
+                        name="netWorth" 
+                        type="number" 
+                        placeholder="e.g. 50000" 
+                        value={netWorth ?? ''} 
+                        onChange={(e) => setNetWorth(e.target.value ? parseFloat(e.target.value) : null)}
+                    />
+                    {profileErrors?.netWorth && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.netWorth[0]}</p>}
+                  </div>
+                  <div className="space-y-2">
+                      <Label htmlFor="monthlyNetSalary">Monthly Net Salary</Label>
+                      <Input 
+                          id="monthlyNetSalary" 
+                          name="monthlyNetSalary" 
+                          type="number" 
+                          placeholder="e.g. 3000"
+                          value={monthlyNetSalary ?? ''}
+                          onChange={(e) => setMonthlyNetSalary(e.target.value ? parseFloat(e.target.value) : null)} 
+                      />
+                      {profileErrors?.monthlyNetSalary && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.monthlyNetSalary[0]}</p>}
+                  </div>
+                  <div className="space-y-2">
+                      <Label htmlFor="savingsRate" className="flex items-center gap-1">
+                          Savings Rate (%)
+                          <TooltipProvider>
+                          <Tooltip>
+                              <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                              <p>The percentage of your net income that you save.</p>
+                              </TooltipContent>
+                          </Tooltip>
+                          </TooltipProvider>
+                      </Label>
+                      <div className="relative">
+                          <Input 
+                          id="savingsRate" 
+                          name="savingsRate" 
+                          type="number" 
+                          placeholder="e.g. 15"
+                          className="pr-8"
+                          value={savingsRate ?? ''}
+                          onChange={(e) => setSavingsRate(e.target.value ? parseFloat(e.target.value) : null)}
+                          />
+                          <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      </div>
+                      {profileErrors?.savingsRate && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.savingsRate[0]}</p>}
+                  </div>
+                  <div className="space-y-2">
+                      <Label htmlFor="totalDebt" className="flex items-center gap-1">
+                          Current Total Debt
+                          <TooltipProvider>
+                          <Tooltip>
+                              <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                              <p>The total amount of debt you currently have.</p>
+                              </TooltipContent>
+                          </Tooltip>
+                          </TooltipProvider>
+                      </Label>
+                      <Input 
+                          id="totalDebt" 
+                          name="totalDebt" 
+                          type="number" 
+                          placeholder="e.g. 10000"
+                          value={totalDebt ?? ''}
+                          onChange={(e) => setTotalDebt(e.target.value ? parseFloat(e.target.value) : null)}
+                      />
+                      {profileErrors?.totalDebt && <p className="text-sm font-medium text-destructive mt-1">{profileErrors.totalDebt[0]}</p>}
+                  </div>
                 </CardContent>
               </Card>
               
@@ -314,7 +310,7 @@ function Goals() {
                       </div>
                       <div className="sm:col-span-2 space-y-2">
                           <Label htmlFor="goalDescription">Goal Description (Optional)</Label>
-                          <Textarea id="goalDescription" placeholder="e.g., A reliable car for commuting" value={newGoal.description} onChange={(e) => setNewGoal({...newGoal, description: e.target.value})} />
+                          <Textarea id="goalDescription" placeholder="e.g., A reliable car for commuting" value={newGoal.description || ''} onChange={(e) => setNewGoal({...newGoal, description: e.target.value})} />
                       </div>
                     </div>
                     <Button type="button" variant="secondary" onClick={handleAddGoal} className="mt-4 w-full">Add Goal</Button>
