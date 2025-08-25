@@ -143,7 +143,7 @@ function Goals() {
                     <CardTitle>Your Profile</CardTitle>
                     <CardDescription>Tell us about your current financial situation.</CardDescription>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <CardContent className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="netWorth" className="flex items-center gap-1">
                         Net Worth
@@ -331,3 +331,5 @@ function Goals() {
     </div>
   );
 }
+
+    
