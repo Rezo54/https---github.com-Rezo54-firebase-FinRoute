@@ -1,61 +1,53 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Default deny (optional; more-specific matches override)
-    match /{document=**} {
-      allow read, write: if false;
+    // --- helpers ---
+    function signedIn() { return request.auth != null; }
+    function isOwner(userId) { return signedIn() && request.auth.uid == userId; }
+    // Admin = there is a doc at admins/{uid}; you create/delete these manually in Console
+    function isAdmin() {
+      return signedIn() &&
+             exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    // Users collection: profile for each uid
+    // --- admin registry ---
+    match /admins/{uid} {
+      // Let a user see ONLY their own admin doc (handy to check if they're admin); you can also set `allow read: if false;`
+      allow read: if signedIn() && request.auth.uid == uid;
+      // No client writes; you’ll create/delete these docs manually
+      allow write: if false;
+    }
+
+    // --- user profiles ---
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      function isOwner() {
-        return isSignedIn() && request.auth.uid == userId;
-      }
-      // Make email match the auth token (optional but recommended)
-      function emailMatchesAuth() {
-        return !('email' in request.resource.data)
-               || (request.auth.token.email != null
-                   && request.resource.data.email == request.auth.token.email);
-      }
-      // Validate allowed fields and types (adjust to your schema)
-      function isValidUser() {
-        // Disallow any password field from the client
-        return !('password' in request.resource.data)
-          // whitelist basic profile fields you expect
-          && request.resource.data.keys().hasOnly(['email','age','displayName','createdAt','updatedAt'])
-          // type checks
-          && (!('email' in request.resource.data) || request.resource.data.email is string)
-          && (!('displayName' in request.resource.data) || request.resource.data.displayName is string)
-          && (!('age' in request.resource.data) || (request.resource.data.age is int && request.resource.data.age >= 13 && request.resource.data.age <= 120))
-          // server timestamps should be set with FieldValue.serverTimestamp() on the client
-          && (!('createdAt' in request.resource.data) || request.resource.data.createdAt == request.time)
-          && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt == request.time);
+      // Basic schema guard; adjust fields as you add them
+      function validProfile() {
+        return
+          !('password' in request.resource.data) &&
+          request.resource.data.keys().hasOnly([
+            'email','displayName','age', 'profile', 'createdAt'
+          ]) &&
+          (!('email' in request.resource.data) || request.resource.data.email is string) &&
+          (!('displayName' in request.resource.data) || request.resource.data.displayName is string) &&
+          (!('age' in request.resource.data) || (request.resource.data.age is int && request.resource.data.age >= 13 && request.resource.data.age <= 120));
       }
 
-      // Create only your own doc; update/delete only your own doc
-      allow create: if isOwner() && isValidUser() && emailMatchesAuth();
-      allow read, update, delete: if isOwner() && isValidUser() && emailMatchesAuth();
-    }
+      // Normal user can create their own profile
+      allow create: if isOwner(userId) && validProfile();
 
-    // Plans subcollection tied to owner
-    match /users/{userId}/plans/{planId} {
-      function isOwner() {
-        return request.auth != null && request.auth.uid == userId;
+      // Read: owner, or admin
+      allow read: if isOwner(userId) || isAdmin();
+
+      // Update/Delete: owner or admin.
+      allow update: if (isOwner(userId) && validProfile()) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
+
+
+      // All subcollections under a user (their own data like plans, settings, etc.)
+      match /{coll}/{doc} {
+        allow create, read, update, delete: if isOwner(userId) || isAdmin();
       }
-      function isValidPlan() {
-        return request.resource.data.keys().hasOnly(['name','amount','notes','createdAt','updatedAt'])
-          && ('name' in request.resource.data && request.resource.data.name is string)
-          && (!('amount' in request.resource.data) || request.resource.data.amount is number)
-          && (!('notes' in request.resource.data) || request.resource.data.notes is string)
-          && (!('createdAt' in request.resource.data) || request.resource.data.createdAt == request.time)
-          && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt == request.time);
-      }
-      allow create, read, update, delete: if isOwner() && isValidPlan();
     }
   }
 }

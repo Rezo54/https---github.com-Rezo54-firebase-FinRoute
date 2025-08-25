@@ -110,7 +110,7 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
 const signupSchemaRobust = z.object({
   email: z.string().email(),
   password: z.string().min(6, { message: "Password must be at least 6 characters long." }),
-  age: z.coerce.number().int().min(18).max(120),
+  age: z.coerce.number().int().min(13).max(120),
 });
 
 function mapSignupError(code: string): AuthState {
