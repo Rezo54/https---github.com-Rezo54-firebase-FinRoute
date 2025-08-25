@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy, serverTimestamp, updateDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { adminDb } from '@/lib/firebase-admin';
+import { getAdminDb } from '@/lib/firebase-admin';
 import { createSession, deleteSession, getSession } from '@/lib/session';
 
 const goalSchema = z.object({
@@ -122,11 +122,7 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
   const { email, password, age } = validatedFields.data;
   
   try {
-    // Ensure admin SDK is initialized before using it
-    if (!adminDb) {
-        throw new Error("Firebase Admin SDK not initialized. Missing credentials?");
-    }
-
+    const adminDb = getAdminDb();
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
@@ -146,7 +142,7 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
     if (error.code === 'auth/email-already-in-use') {
         message = 'This email address is already in use.';
     }
-    if (error.message.includes('Firebase Admin SDK not initialized')) {
+    if (error.message.includes('Firebase Admin')) {
         message = 'Server configuration error. Please contact support.';
     }
     return { message, errors: null };
