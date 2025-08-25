@@ -153,19 +153,24 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
     let message = 'An unexpected error occurred during signup.';
     let title = 'Signup Failed';
     
-    // Firebase Admin SDK errors have a 'code' property
-    if (error.code === 'auth/email-already-exists') {
-        message = 'This email address is already in use by another account.';
-        title = 'Email In Use';
-    } else if (error.message?.includes("Firebase Admin SDK")) {
-        message = "There's an issue with the server's configuration. Please contact support if this issue persists.";
-        title = "Server Error";
+    if (error && typeof error === 'object' && 'code' in error) {
+        if (error.code === 'auth/email-already-exists') {
+            message = 'This email address is already in use by another account.';
+            title = 'Email In Use';
+        }
+    } else if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+        if (error.message.includes("Firebase Admin SDK")) {
+            message = "There's an issue with the server's configuration. Please contact support if this issue persists.";
+            title = "Server Error";
+        }
     }
+
     return { title, message, errors: null };
   }
   
   redirect('/dashboard');
 }
+
 
 export async function logout() {
   await deleteSession();
@@ -450,5 +455,3 @@ export async function deleteGoal(goalName: string) {
         await latestPlanDoc.ref.update({ goals: updatedGoals });
     }
 }
-
-    
