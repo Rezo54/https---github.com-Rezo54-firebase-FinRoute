@@ -1,53 +1,47 @@
-
+// src/lib/firebase-server.ts
 import * as admin from 'firebase-admin';
 
-let adminAuth: admin.auth.Auth;
-let adminDb: admin.firestore.Firestore;
-
-function initializeFirebaseAdmin() {
-    if (admin.apps.length > 0) {
-        if (!adminAuth) {
-            adminAuth = admin.auth();
-        }
-        if (!adminDb) {
-            adminDb = admin.firestore();
-        }
-        return;
-    }
-
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-    const projectId = process.env.FIREBASE_PROJECT_ID;
-
-    if (!privateKey || !clientEmail || !projectId) {
-        throw new Error(
-            'Firebase Admin credentials are not set in the environment variables. ' +
-            'Please set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY.'
-        );
-    }
-
-    try {
-        admin.initializeApp({
-            credential: admin.credential.cert({
-                projectId,
-                clientEmail,
-                privateKey,
-            }),
-        });
-        adminAuth = admin.auth();
-        adminDb = admin.firestore();
-    } catch (error) {
-        console.error('Firebase Admin SDK initialization error:', error);
-        throw new Error('Failed to initialize Firebase Admin SDK.');
-    }
+function getPrivateKey() {
+  const raw = process.env.FIREBASE_PRIVATE_KEY;
+  if (!raw) return undefined;
+  const unquoted = raw.replace(/^['"]|['"]$/g, '');          // strip wrapping quotes if any
+  return unquoted.includes('\\n') ? unquoted.replace(/\\n/g, '\n') : unquoted; // fix escaped \n
 }
 
-export function getAdminDb() {
-    initializeFirebaseAdmin();
-    return adminDb;
+export function initializeFirebaseAdmin() {
+  if (admin.apps.length) return;
+
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = getPrivateKey();
+
+  if (!projectId || !clientEmail || !privateKey) {
+    console.error('[Admin init] Missing envs', {
+      hasProjectId: !!projectId,
+      hasClientEmail: !!clientEmail,
+      hasPrivateKey: !!privateKey,
+    });
+    throw new Error('Missing FIREBASE_* env vars');
+  }
+
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
+    });
+  } catch (err: any) {
+    // >>> Log everything useful
+    console.error('[Admin init failed]', {
+      name: err?.name,
+      code: err?.code,
+      message: err?.message,
+      stack: err?.stack,
+      toString: err?.toString?.(),
+    });
+    // Handle harmless duplicate init during hot reload
+    const dup = (err?.code === 'app/duplicate-app') || String(err?.message).includes('already exists');
+    if (!dup) throw new Error('Failed to initialize Firebase Admin SDK.');
+  }
 }
 
-export function getAdminAuth() {
-    initializeFirebaseAdmin();
-    return adminAuth;
-}
+export function getAdminDb() { initializeFirebaseAdmin(); return admin.firestore(); }
+export function getAdminAuth() { initializeFirebaseAdmin(); return admin.auth(); }
