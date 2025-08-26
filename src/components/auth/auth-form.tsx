@@ -1,10 +1,14 @@
-
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FirebaseError } from 'firebase/app';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  fetchSignInMethodsForEmail,
+  sendPasswordResetEmail,
+} from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { startSession } from '@/app/actions';
@@ -42,6 +46,7 @@ export function AuthForm() {
 
   const [pending, setPending] = useState(false);
   const [state, setState] = useState<UIState>(initialState);
+  const [emailInput, setEmailInput] = useState(''); // for reset flow
 
   const mapAuthError = (code: string, isSignup: boolean): UIState => {
     switch (code) {
@@ -71,7 +76,7 @@ export function AuthForm() {
       if (fe.code) return fe.code;
       if (fe.message?.toLowerCase().includes('permission')) return 'permission-denied';
     }
-     if (err instanceof Error) return err.message;
+    if (err instanceof Error) return err.message;
     return 'unknown';
   };
 
@@ -86,60 +91,78 @@ export function AuthForm() {
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const res = await startSession(cred.user.uid);
       if (!res?.ok) throw new Error('session-set-failed');
-      
       router.push('/dashboard');
     } catch (err) {
+      console.error('Login Error (raw):', err);
       const code = getErrorCode(err);
-      console.error('Login Error:', { code, message: (err as Error)?.message, stack: (err as Error)?.stack });
-      setState(mapAuthError(code, false));
+
+      if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') {
+        try {
+          const methods = await fetchSignInMethodsForEmail(auth, email);
+          if (methods.length === 0) {
+            setState({ title: 'Account not found', message: 'No account exists for this email. Try signing up.' });
+          } else if (!methods.includes('password')) {
+            setState({
+              title: 'Use a different sign-in',
+              message: `This email is registered with: ${methods.join(', ')}. Use that provider or reset the password.`,
+            });
+          } else {
+            setState(mapAuthError(code, false));
+          }
+        } catch (e) {
+          console.error('fetchSignInMethods error:', e);
+          setState(mapAuthError(code, false));
+        }
+      } else {
+        setState(mapAuthError(code, false));
+      }
     } finally {
       setPending(false);
     }
-  }
+  };
 
   const handleSignup = async (formData: FormData) => {
-      setState(initialState);
-      setPending(true);
+    setState(initialState);
+    setPending(true);
 
-      const email = String(formData.get('email') || '').trim().toLowerCase();
-      const password = String(formData.get('password') || '');
-      const ageStr = String(formData.get('age') || '');
-      const age = ageStr ? Number(ageStr) : undefined;
-      
-      try {
-        if (!age || !Number.isInteger(age) || age < 13 || age > 120) {
-          setState({ title: 'Validation error', message: 'Fix the fields below.', errors: { age: ['Age must be between 13 and 120'] } });
-          return;
-        }
+    const email = String(formData.get('email') || '').trim().toLowerCase();
+    const password = String(formData.get('password') || '');
+    const ageStr = String(formData.get('age') || '');
+    const age = ageStr ? Number(ageStr) : undefined;
 
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
-        const uid = cred.user.uid;
-
-        await setDoc(
-          doc(db, 'users', uid),
-          {
-            email,
-            age,
-            userType: 'user',
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
-
-        const res = await startSession(uid);
-        if (!res?.ok) throw new Error('session-set-failed');
-
-        router.push('/dashboard');
-      } catch (err) {
-        const code = getErrorCode(err);
-        console.error('Signup Error:', { code, message: (err as Error)?.message, stack: (err as Error)?.stack });
-        setState(mapAuthError(code, true));
-      } finally {
-        setPending(false);
+    try {
+      if (!age || !Number.isInteger(age) || age < 13 || age > 120) {
+        setState({ title: 'Validation error', message: 'Fix the fields below.', errors: { age: ['Age must be between 13 and 120'] } });
+        return;
       }
-  }
 
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      const uid = cred.user.uid;
+
+      await setDoc(
+        doc(db, 'users', uid),
+        {
+          email,
+          age,
+          userType: 'user',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      const res = await startSession(uid);
+      if (!res?.ok) throw new Error('session-set-failed');
+
+      router.push('/dashboard');
+    } catch (err) {
+      console.error('Signup Error (raw):', err);
+      const code = getErrorCode(err);
+      setState(mapAuthError(code, true));
+    } finally {
+      setPending(false);
+    }
+  };
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -148,6 +171,18 @@ export function AuthForm() {
       handleSignup(formData);
     } else {
       handleLogin(formData);
+    }
+  };
+
+  const onForgotPassword = async () => {
+    try {
+      const email = emailInput.trim().toLowerCase();
+      if (!email) return setState({ title: 'Reset password', message: 'Enter your email above and click again.' });
+      await sendPasswordResetEmail(auth, email);
+      setState({ title: 'Reset email sent', message: 'Check your inbox for a reset link.' });
+    } catch (err) {
+      console.error('Reset Error (raw):', err);
+      setState({ title: 'Reset failed', message: 'Could not send reset email. Try again later.' });
     }
   };
 
@@ -161,7 +196,14 @@ export function AuthForm() {
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" placeholder="you@example.com" required />
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="you@example.com"
+              required
+              onChange={(e) => setEmailInput(e.target.value)}
+            />
             {state?.errors?.email && <p className="text-sm font-medium text-destructive">{state.errors.email[0]}</p>}
           </div>
 
@@ -177,6 +219,15 @@ export function AuthForm() {
             <Label htmlFor="password">Password</Label>
             <Input id="password" name="password" type="password" required />
             {state?.errors?.password && <p className="text-sm font-medium text-destructive">{state.errors.password[0]}</p>}
+            {!isSignUp && (
+              <button
+                type="button"
+                className="text-xs underline text-primary"
+                onClick={onForgotPassword}
+              >
+                Forgot password?
+              </button>
+            )}
           </div>
 
           {state?.message && state.message !== 'success' && (
