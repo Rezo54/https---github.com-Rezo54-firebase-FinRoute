@@ -3,10 +3,11 @@
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs, addDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { createSession, deleteSession, getSession } from '@/lib/session';
 import type { FinancialPlanInput } from '@/ai/flows/financial-plan-generator';
 import { financialPlanGenerator } from '@/ai/flows/financial-plan-generator';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 
 // Minimal server action just to set an httpOnly cookie after client Auth
 export async function startSession(uid: string) {
@@ -166,7 +167,7 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
       newAchievement: isFirstPlan ? { title: 'First Planner', icon: 'Award' } : null,
     };
   } catch (error) {
-    console.error(error);
+    console.error('Error generating plan:', error);
     return { message: 'An unexpected error occurred on the server. Please try again later.', errors: null, plan: null };
   }
 }

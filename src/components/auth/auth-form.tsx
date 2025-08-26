@@ -5,16 +5,15 @@ import { useState } from 'react';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { startSession, pingServer } from '@/app/actions';
+import { startSession } from '@/app/actions';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Zap } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { AuthFormSwitcher } from './auth-form-switcher';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
-import { useToast } from '@/hooks/use-toast';
 
 type UIState = {
   title?: string;
@@ -42,7 +41,6 @@ export function AuthForm() {
   const router = useRouter();
   const mode = searchParams.get('mode') || 'login';
   const isSignUp = mode === 'signup';
-  const { toast } = useToast();
 
   const [pending, setPending] = useState(false);
   const [state, setState] = useState<UIState>(initialState);
@@ -74,18 +72,18 @@ export function AuthForm() {
     const password = String(fd.get('password') || '');
     const ageStr = String(fd.get('age') || '');
     const age = ageStr ? Number(ageStr) : undefined;
-
+    
     try {
       if (isSignUp) {
         if (!age || !Number.isInteger(age) || age < 13 || age > 120) {
           setState({ title: 'Validation error', message: 'Fix the fields below.', errors: { age: ['Age must be between 13 and 120'] } });
+          setPending(false);
           return;
         }
 
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         const uid = cred.user.uid;
-
-        // owner-only write (rules enforce this)
+        
         await setDoc(
           doc(db, 'users', uid),
           {
@@ -98,7 +96,7 @@ export function AuthForm() {
           { merge: true }
         );
 
-        await startSession(uid); // set httpOnly cookie on the server
+        await startSession(uid);
       } else {
         const cred = await signInWithEmailAndPassword(auth, email, password);
         await startSession(cred.user.uid);
@@ -106,24 +104,16 @@ export function AuthForm() {
 
       router.push('/dashboard');
     } catch (err: any) {
+      console.error('Auth Form Error:', {
+        code: err.code,
+        message: err.message,
+        stack: err.stack,
+      });
       const code = String(err?.code || '');
       const ui = mapAuthError(code, isSignUp);
       setState(ui);
     } finally {
       setPending(false);
-    }
-  };
-
-  const handleTestConnection = async () => {
-    try {
-      const result = await pingServer();
-      toast({ title: 'Server Test', description: result.message });
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Server Test Failed',
-        description: err?.message || 'An unknown error occurred.',
-      });
     }
   };
 
@@ -167,10 +157,6 @@ export function AuthForm() {
 
         <div className="mt-4 flex flex-col gap-4">
           <AuthFormSwitcher isSignUp={isSignUp} />
-          <Button variant="outline" onClick={handleTestConnection}>
-            <Zap className="mr-2 h-4 w-4" />
-            Test Server Connection
-          </Button>
         </div>
       </CardContent>
     </Card>

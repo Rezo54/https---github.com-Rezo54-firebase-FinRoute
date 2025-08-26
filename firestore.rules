@@ -26,23 +26,27 @@ service cloud.firestore {
         return
           !('password' in request.resource.data) &&
           request.resource.data.keys().hasOnly([
-            'email','displayName','age', 'profile', 'createdAt'
+            'email','displayName','age','userType','isPublic','createdAt','updatedAt', 'profile'
           ]) &&
           (!('email' in request.resource.data) || request.resource.data.email is string) &&
           (!('displayName' in request.resource.data) || request.resource.data.displayName is string) &&
-          (!('age' in request.resource.data) || (request.resource.data.age is int && request.resource.data.age >= 13 && request.resource.data.age <= 120));
+          (!('age' in request.resource.data) || (request.resource.data.age is int && request.resource.data.age >= 13 && request.resource.data.age <= 120)) &&
+          // clients may NOT promote themselves to admin now; restrict to non-privileged types
+          (!('userType' in request.resource.data) || request.resource.data.userType in ['user','staff']);
       }
 
       // Normal user can create their own profile
       allow create: if isOwner(userId) && validProfile();
 
-      // Read: owner, or admin
-      allow read: if isOwner(userId) || isAdmin();
+      // Read: owner, or admin, or explicitly public profiles
+      allow read: if isOwner(userId) || isAdmin() || (resource.data.isPublic == true);
 
       // Update/Delete: owner or admin.
-      allow update: if (isOwner(userId) && validProfile()) || isAdmin();
-      allow delete: if isOwner(userId) || isAdmin();
-
+      // If owner, userType must NOT change (immutable unless admin).
+      allow update, delete:
+        if (isOwner(userId) && validProfile() &&
+            (!('userType' in request.resource.data) || request.resource.data.userType == resource.data.userType))
+        || isAdmin();
 
       // All subcollections under a user (their own data like plans, settings, etc.)
       match /{coll}/{doc} {

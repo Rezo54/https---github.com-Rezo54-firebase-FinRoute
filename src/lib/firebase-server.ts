@@ -1,4 +1,3 @@
-
 // src/lib/firebase-server.ts
 // No "use server" here. This is a server-only *utility* (not a Server Action module).
 import 'server-only';
@@ -25,14 +24,28 @@ function loadServiceAccount():
   const b64 = process.env.FIREBASE_SERVICE_ACCOUNT_B64?.trim();
 
   if (raw) {
-    const json = JSON.parse(raw);
-    json.private_key = normalizePrivateKey(json.private_key);
-    return json;
+    try {
+      const json = JSON.parse(raw);
+      if (json.private_key) {
+        json.private_key = normalizePrivateKey(json.private_key);
+      }
+      return json;
+    } catch (e) {
+      console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT JSON", e);
+      return null;
+    }
   }
   if (b64) {
-    const json = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
-    json.private_key = normalizePrivateKey(json.private_key);
-    return json;
+     try {
+        const json = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
+        if (json.private_key) {
+            json.private_key = normalizePrivateKey(json.private_key);
+        }
+        return json;
+     } catch(e) {
+        console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_B64 JSON", e);
+        return null;
+     }
   }
 
   // 3-var fallback if you ever set them
@@ -58,9 +71,10 @@ function ensureAdmin(): admin.app.App | null {
   const sa = loadServiceAccount();
   if (!sa) {
     // If you enable admin, this error will fire.
-    throw new Error(
+    console.error(
       'Firebase Admin is not configured. Provide FIREBASE_SERVICE_ACCOUNT(_B64) or the 3 vars.'
     );
+    return null;
   }
 
   try {
