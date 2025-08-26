@@ -1,7 +1,9 @@
+
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { FirebaseError } from 'firebase/app';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -21,11 +23,7 @@ type UIState = {
   errors?: Record<string, string[]> | null;
 };
 
-const initialState: UIState = {
-  title: '',
-  message: '',
-  errors: null,
-};
+const initialState: UIState = { title: '', message: '', errors: null };
 
 function SubmitButton({ isSignUp, pending }: { isSignUp: boolean; pending: boolean }) {
   return (
@@ -56,34 +54,67 @@ export function AuthForm() {
       case 'auth/invalid-credential':
       case 'auth/wrong-password':
       case 'auth/user-not-found':
+      case 'auth/too-many-requests':
         return { title: 'Login failed', message: 'Email or password is incorrect.' };
+      case 'permission-denied':
+        return { title: 'Permission denied', message: 'Profile write blocked by Firestore rules. Check rules for /users/{uid}.' };
+      case 'session-set-failed':
+        return { title: 'Session error', message: 'Could not establish a session. Please try again.' };
       default:
         return { title: isSignup ? 'Signup failed' : 'Login failed', message: 'Something went wrong. Please try again.' };
     }
   };
 
-  const onSubmit: React.FormEventHandler<HTMLFormElement> = async (e) => {
-    e.preventDefault();
+  const getErrorCode = (err: unknown): string => {
+    if (err && typeof err === 'object') {
+      const fe = err as FirebaseError & { error?: { message?: string } };
+      if (fe.code) return fe.code;
+      if (fe.message?.toLowerCase().includes('permission')) return 'permission-denied';
+    }
+     if (err instanceof Error) return err.message;
+    return 'unknown';
+  };
+
+  const handleLogin = async (formData: FormData) => {
     setState(initialState);
     setPending(true);
 
-    const fd = new FormData(e.currentTarget);
-    const email = String(fd.get('email') || '').trim();
-    const password = String(fd.get('password') || '');
-    const ageStr = String(fd.get('age') || '');
-    const age = ageStr ? Number(ageStr) : undefined;
-    
+    const email = String(formData.get('email') || '').trim().toLowerCase();
+    const password = String(formData.get('password') || '');
+
     try {
-      if (isSignUp) {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const res = await startSession(cred.user.uid);
+      if (!res?.ok) throw new Error('session-set-failed');
+      
+      router.push('/dashboard');
+    } catch (err) {
+      const code = getErrorCode(err);
+      console.error('Login Error:', { code, message: (err as Error)?.message, stack: (err as Error)?.stack });
+      setState(mapAuthError(code, false));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  const handleSignup = async (formData: FormData) => {
+      setState(initialState);
+      setPending(true);
+
+      const email = String(formData.get('email') || '').trim().toLowerCase();
+      const password = String(formData.get('password') || '');
+      const ageStr = String(formData.get('age') || '');
+      const age = ageStr ? Number(ageStr) : undefined;
+      
+      try {
         if (!age || !Number.isInteger(age) || age < 13 || age > 120) {
           setState({ title: 'Validation error', message: 'Fix the fields below.', errors: { age: ['Age must be between 13 and 120'] } });
-          setPending(false);
           return;
         }
 
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         const uid = cred.user.uid;
-        
+
         await setDoc(
           doc(db, 'users', uid),
           {
@@ -96,24 +127,27 @@ export function AuthForm() {
           { merge: true }
         );
 
-        await startSession(uid);
-      } else {
-        const cred = await signInWithEmailAndPassword(auth, email, password);
-        await startSession(cred.user.uid);
-      }
+        const res = await startSession(uid);
+        if (!res?.ok) throw new Error('session-set-failed');
 
-      router.push('/dashboard');
-    } catch (err: any) {
-      console.error('Auth Form Error:', {
-        code: err.code,
-        message: err.message,
-        stack: err.stack,
-      });
-      const code = String(err?.code || '');
-      const ui = mapAuthError(code, isSignUp);
-      setState(ui);
-    } finally {
-      setPending(false);
+        router.push('/dashboard');
+      } catch (err) {
+        const code = getErrorCode(err);
+        console.error('Signup Error:', { code, message: (err as Error)?.message, stack: (err as Error)?.stack });
+        setState(mapAuthError(code, true));
+      } finally {
+        setPending(false);
+      }
+  }
+
+
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    if (isSignUp) {
+      handleSignup(formData);
+    } else {
+      handleLogin(formData);
     }
   };
 
