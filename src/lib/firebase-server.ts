@@ -3,6 +3,8 @@
 import 'server-only';
 import * as admin from 'firebase-admin';
 
+const ENABLE_ADMIN = process.env.ENABLE_ADMIN === 'true'; // <- gate
+
 let app: admin.app.App | null = null;
 
 /** Normalize PEM newlines/quotes if you ever decide to set the envs later */
@@ -47,14 +49,14 @@ function loadServiceAccount():
 }
 
 /** Initialize Admin only if envs exist. Otherwise remain a no-op. */
-function ensureAdmin(optional = true): admin.app.App | null {
+function ensureAdmin(): admin.app.App | null {
+  if (!ENABLE_ADMIN) return null; // <- short-circuit: never init
   if (app) return app;
   if (admin.apps.length) return (app = admin.app());
 
   const sa = loadServiceAccount();
   if (!sa) {
-    // Not configured: behave as optional unless explicitly required.
-    if (optional) return null;
+    // If you enable admin, this error will fire.
     throw new Error(
       'Firebase Admin is not configured. Provide FIREBASE_SERVICE_ACCOUNT(_B64) or the 3 vars.'
     );
@@ -82,29 +84,16 @@ function ensureAdmin(optional = true): admin.app.App | null {
 
 /** Public helpers — safe to import. They only work if Admin is configured. */
 export function getAdminAuth() {
-  const a = ensureAdmin(true);
-  if (!a) {
-    throw new Error(
-      'Admin SDK not configured. Use client Firebase Auth for now (createUserWithEmailAndPassword / signInWithEmailAndPassword).'
-    );
-  }
+  const a = ensureAdmin();
+  if (!a) throw new Error('Admin disabled (set ENABLE_ADMIN=true to enable).');
   return admin.auth();
 }
 
 export function getAdminDb() {
-  const a = ensureAdmin(true);
-  if (!a) {
-    throw new Error(
-      'Admin SDK not configured. Use client Firestore for user-owned reads/writes.'
-    );
-  }
+  const a = ensureAdmin();
+  if (!a) throw new Error('Admin disabled (set ENABLE_ADMIN=true to enable).');
   return admin.firestore();
 }
 
 /** Optional: ask if Admin is available (feature flag) */
-export const hasAdmin = !!loadServiceAccount();
-
-// NOTE:
-// - Do *not* export `runtime` here. Set `export const runtime = 'nodejs'`
-//   in the specific route handlers or server actions that (eventually) call these helpers.
-// - Keep all Admin usage on Node runtime only (not Edge).
+export const hasAdmin = !!(ENABLE_ADMIN && loadServiceAccount());

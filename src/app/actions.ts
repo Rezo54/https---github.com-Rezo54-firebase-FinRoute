@@ -3,12 +3,13 @@
 
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth, db } from '@/lib/firebase';
+import { doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs, addDoc } from 'firebase/firestore';
 import { createSession, deleteSession, getSession } from '@/lib/session';
 import type { FinancialPlanInput, FinancialPlanOutput } from '@/ai/flows/financial-plan-generator';
 import { financialPlanGenerator } from '@/ai/flows/financial-plan-generator';
-import { getAdminAuth, getAdminDb } from '@/lib/firebase-server';
+import { getAdminDb } from '@/lib/firebase-server';
 
 // Test function to check server connectivity without Firebase
 export async function pingServer() {
@@ -114,18 +115,16 @@ const signupSchemaRobust = z.object({
 });
 
 function mapSignupError(code: string): AuthState {
-  // Map Firebase Admin Auth error codes to user-friendly messages
+  // Map Firebase Auth error codes to user-friendly messages
   switch (code) {
-    case 'auth/email-already-exists':
+    case 'auth/email-already-in-use':
       return { title: 'Email in use', message: 'Try signing in instead.', errors: { email: ['Email already in use'] } };
     case 'auth/weak-password':
       return { title: 'Weak password', message: 'Use at least 6 characters.', errors: { password: ['Password is too weak'] } };
     case 'auth/invalid-email':
       return { title: 'Invalid email', message: 'Please check the address.', errors: { email: ['Invalid email address'] } };
-    case 'auth/operation-not-allowed':
-      return { title: 'Signup disabled', message: 'Email/password signups are disabled for this project.' };
     default:
-      return { title: 'Signup failed', message: 'Something went wrong. Please try again.' };
+      return { title: 'Signup failed', message: 'An unexpected error occurred during signup. Please try again.' };
   }
 }
 
@@ -144,47 +143,33 @@ export async function signup(_: AuthState, formData: FormData): Promise<AuthStat
   const { email, password, age } = parsed.data;
   const displayName = email.split('@')[0];
 
-  const authAdmin = getAdminAuth();
-  const dbAdmin = getAdminDb();
-
-  let uid: string | null = null;
-
   try {
-    // 1) Create Auth user (password never stored in Firestore)
-    const userRecord = await authAdmin.createUser({ email, password, displayName });
-    uid = userRecord.uid;
+    // 1) Create Auth user using client SDK
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const uid = userCredential.user.uid;
 
     // 2) Create Firestore profile (server time; keep schema minimal)
-    await dbAdmin.doc(`users/${uid}`).set({
+    await setDoc(doc(db, `users/${uid}`), {
       email,
       displayName,
       age,
       createdAt: new Date().toISOString(),
     });
     
-    await createSession(userRecord.uid);
+    // 3) Create session
+    await createSession(uid);
 
   } catch (err: any) {
     const code = String(err?.code ?? '');
     const state = mapSignupError(code);
 
-    // Detailed server logs (but don’t leak raw internals to the user)
+    // Detailed server logs
     console.error('Signup error', {
       code,
       message: err?.message,
-      uidAttempted: uid,
       email,
     });
-
-    // If Auth succeeded but Firestore failed, roll back the Auth user to avoid orphans
-    if (uid && code !== 'auth/email-already-exists') {
-      try {
-        await authAdmin.deleteUser(uid);
-      } catch (cleanupErr: any) {
-        console.error('Signup rollback failed', { cleanupErr: cleanupErr?.message, uid });
-      }
-    }
-
+    
     return state;
   }
   
@@ -236,7 +221,8 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
 
     const { netWorth, savingsRate, totalDebt, monthlyNetSalary, goals, currency, isFirstPlan } = validatedFields.data;
     
-    const userDoc = await getAdminDb().collection('users').doc(session.uid).get();
+    const userDocRef = doc(db, 'users', session.uid);
+    const userDoc = await getDoc(userDocRef);
     const userData = userDoc.data();
     if (!userData) {
       return { message: "User profile not found.", errors: null, plan: null };
@@ -286,7 +272,9 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
         createdAt: new Date().toISOString(),
         currency: currency,
     };
-    await getAdminDb().collection("users").doc(session.uid).collection("plans").add(planToSave);
+    
+    const plansCollectionRef = collection(db, 'users', session.uid, 'plans');
+    await addDoc(plansCollectionRef, planToSave);
 
     const finalState: PlanGenerationState = {
       message: 'success',
@@ -337,8 +325,8 @@ export async function savePlan(prevState: SavePlanState, formData: FormData): Pr
   const { planId } = validatedFields.data;
   
   try {
-      const planRef = getAdminDb().collection('users').doc(session.uid).collection('plans').doc(planId);
-      await planRef.set({ saved: true }, { merge: true });
+      const planRef = doc(db, 'users', session.uid, 'plans', planId);
+      await setDoc(planRef, { saved: true }, { merge: true });
       return { message: 'success' };
   } catch (error) {
       console.error("Failed to save plan:", error);
@@ -353,9 +341,9 @@ export async function getDashboardState() {
     redirect('/');
   }
   
-  const plansRef = getAdminDb().collection('users').doc(session.uid).collection('plans');
-  const q = plansRef.orderBy('createdAt', 'desc').limit(1);
-  const querySnapshot = await q.get();
+  const plansRef = collection(db, 'users', session.uid, 'plans');
+  const q = query(plansRef, orderBy('createdAt', 'desc'), limit(1));
+  const querySnapshot = await getDocs(q);
 
   if (querySnapshot.empty) {
     return { message: 'No plan found', plan: null, goals: null, keyMetrics: null };
@@ -401,7 +389,8 @@ export async function saveProfile(prevState: ProfileState, formData: FormData): 
   }
   
   try {
-    await getAdminDb().collection('users').doc(session.uid).set({ profile: validatedFields.data }, { merge: true });
+    const userDocRef = doc(db, 'users', session.uid);
+    await setDoc(userDocRef, { profile: validatedFields.data }, { merge: true });
     return { message: 'success' };
   } catch (error) {
     console.error("Failed to save profile: ", error);
@@ -415,7 +404,8 @@ export async function getProfile() {
   if (!session?.uid) {
     return null;
   }
-  const userDoc = await getAdminDb().collection('users').doc(session.uid).get();
+  const userDocRef = doc(db, 'users', session.uid);
+  const userDoc = await getDoc(userDocRef);
   const userData = userDoc.data();
   return userData?.profile ?? null;
 }
@@ -426,9 +416,9 @@ export async function updateGoal(goalName: string, newAmount: number) {
         redirect('/');
     }
 
-    const plansRef = getAdminDb().collection('users').doc(session.uid).collection('plans');
-    const q = plansRef.orderBy('createdAt', 'desc').limit(1);
-    const querySnapshot = await q.get();
+    const plansRef = collection(db, 'users', session.uid, 'plans');
+    const q = query(plansRef, orderBy('createdAt', 'desc'), limit(1));
+    const querySnapshot = await getDocs(q);
 
     if (!querySnapshot.empty) {
         const latestPlanDoc = querySnapshot.docs[0];
@@ -436,7 +426,7 @@ export async function updateGoal(goalName: string, newAmount: number) {
         const updatedGoals = latestPlanData.goals.map((g: any) =>
             g.name === goalName ? { ...g, currentAmount: newAmount } : g
         );
-        await latestPlanDoc.ref.update({ goals: updatedGoals });
+        await setDoc(latestPlanDoc.ref, { goals: updatedGoals }, { merge: true });
     }
 }
 
@@ -446,14 +436,14 @@ export async function deleteGoal(goalName: string) {
         redirect('/');
     }
 
-    const plansRef = getAdminDb().collection('users').doc(session.uid).collection('plans');
-    const q = plansRef.orderBy('createdAt', 'desc').limit(1);
-    const querySnapshot = await q.get();
+    const plansRef = collection(db, 'users', session.uid, 'plans');
+    const q = query(plansRef, orderBy('createdAt', 'desc'), limit(1));
+    const querySnapshot = await getDocs(q);
     
     if (!querySnapshot.empty) {
         const latestPlanDoc = querySnapshot.docs[0];
         const latestPlanData = latestPlanDoc.data();
         const updatedGoals = latestPlanData.goals.filter((g: any) => g.name !== goalName);
-        await latestPlanDoc.ref.update({ goals: updatedGoals });
+        await setDoc(latestPlanDoc.ref, { goals: updatedGoals }, { merge: true });
     }
 }
