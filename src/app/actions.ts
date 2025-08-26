@@ -1,21 +1,27 @@
+// src/app/actions.ts
 'use server';
 
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs, addDoc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { createSession, deleteSession, getSession } from '@/lib/session';
 import type { FinancialPlanInput } from '@/ai/flows/financial-plan-generator';
 import { financialPlanGenerator } from '@/ai/flows/financial-plan-generator';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 
-// Minimal server action just to set an httpOnly cookie after client Auth
+/** Establish an httpOnly session cookie (no redirect). */
 export async function startSession(uid: string) {
   await createSession(uid);
   return { ok: true };
 }
 
-// Keep your ping (no Firebase touch)
+/** Establish session cookie and redirect immediately (prevents client-side race). */
+export async function startSessionAndRedirect(uid: string, to = '/dashboard') {
+  await createSession(uid);
+  redirect(to);
+}
+
+/** Simple connectivity check */
 export async function pingServer() {
   console.log('Ping received on server.');
   return { message: 'Server is responding!' };
@@ -26,9 +32,7 @@ export async function logout() {
   redirect('/');
 }
 
-// ---- everything below stays as you had it ----
-// (Note: these still use the Firestore Web SDK on the server; if you hit runtime issues,
-// consider moving these writes/reads to the client or switching to Firestore REST on server.)
+// ---------------- App feature actions (unchanged) ----------------
 
 const goalSchema = z.object({
   id: z.string(),
@@ -42,10 +46,7 @@ const goalSchema = z.object({
     if (data.currentAmount === null || data.targetAmount === null) return true;
     return data.currentAmount <= data.targetAmount;
   },
-  {
-    message: 'Current amount cannot be greater than target amount.',
-    path: ['currentAmount'],
-  }
+  { message: 'Current amount cannot be greater than target amount.', path: ['currentAmount'] }
 );
 
 const formSchema = z.object({
@@ -77,17 +78,12 @@ export type PlanGenerationState = {
     totalDebt: number;
     monthlyNetSalary: number;
   } | null;
-  newAchievement?: {
-    title: string;
-    icon: string;
-  } | null;
+  newAchievement?: { title: string; icon: string } | null;
 };
 
 export async function generatePlan(prevState: PlanGenerationState, formData: FormData): Promise<PlanGenerationState> {
   const session = await getSession();
-  if (!session?.uid) {
-    redirect('/');
-  }
+  if (!session?.uid) redirect('/');
 
   try {
     const rawData: Record<string, any> = {};
@@ -114,24 +110,13 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
     const userDocRef = doc(db, 'users', session.uid);
     const userDoc = await getDoc(userDocRef);
     const userData = userDoc.data();
-    if (!userData) {
-      return { message: 'User profile not found.', errors: null, plan: null };
-    }
+    if (!userData) return { message: 'User profile not found.', errors: null, plan: null };
 
     const debtToIncome = monthlyNetSalary > 0 ? Math.round((totalDebt / monthlyNetSalary) * 100) : 0;
     const age = userData.age;
 
     const currencySymbols: Record<string, string> = {
-      USD: '$',
-      EUR: '€',
-      JPY: '¥',
-      GBP: '£',
-      NGN: '₦',
-      ZAR: 'R',
-      KES: 'KSh',
-      CNY: '¥',
-      INR: '₹',
-      SGD: 'S$',
+      USD: '$', EUR: '€', JPY: '¥', GBP: '£', NGN: '₦', ZAR: 'R', KES: 'KSh', CNY: '¥', INR: '₹', SGD: 'S$',
     };
 
     const input: FinancialPlanInput = {
@@ -181,9 +166,7 @@ export async function savePlan(prevState: SavePlanState, formData: FormData): Pr
   if (!session?.uid) redirect('/');
 
   const validatedFields = savePlanSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!validatedFields.success) {
-    return { message: 'Invalid data for saving plan.', errors: validatedFields.error.flatten() };
-  }
+  if (!validatedFields.success) return { message: 'Invalid data for saving plan.', errors: validatedFields.error.flatten() };
 
   const { planId } = validatedFields.data;
 
