@@ -9,7 +9,7 @@ import { doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs, addDoc
 import { createSession, deleteSession, getSession } from '@/lib/session';
 import type { FinancialPlanInput, FinancialPlanOutput } from '@/ai/flows/financial-plan-generator';
 import { financialPlanGenerator } from '@/ai/flows/financial-plan-generator';
-import { getAdminDb } from '@/lib/firebase-server';
+import { getAdminDb, getAdminAuth } from '@/lib/firebase-server';
 
 // Test function to check server connectivity without Firebase
 export async function pingServer() {
@@ -118,8 +118,10 @@ function mapSignupError(code: string): AuthState {
   // Map Firebase Auth error codes to user-friendly messages
   switch (code) {
     case 'auth/email-already-in-use':
+    case 'auth/email-already-exists':
       return { title: 'Email in use', message: 'Try signing in instead.', errors: { email: ['Email already in use'] } };
     case 'auth/weak-password':
+    case 'auth/invalid-password':
       return { title: 'Weak password', message: 'Use at least 6 characters.', errors: { password: ['Password is too weak'] } };
     case 'auth/invalid-email':
       return { title: 'Invalid email', message: 'Please check the address.', errors: { email: ['Invalid email address'] } };
@@ -142,14 +144,17 @@ export async function signup(_: AuthState, formData: FormData): Promise<AuthStat
 
   const { email, password, age } = parsed.data;
   const displayName = email.split('@')[0];
+  const adminAuth = getAdminAuth();
+  const adminDb = getAdminDb();
+  let uid: string | null = null;
 
   try {
-    // 1) Create Auth user using client SDK
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const uid = userCredential.user.uid;
+    // 1) Create Auth user using Admin SDK
+    const userRecord = await adminAuth.createUser({ email, password, displayName });
+    uid = userRecord.uid;
 
     // 2) Create Firestore profile (server time; keep schema minimal)
-    await setDoc(doc(db, `users/${uid}`), {
+    await adminDb.doc(`users/${uid}`).set({
       email,
       displayName,
       age,
@@ -169,6 +174,20 @@ export async function signup(_: AuthState, formData: FormData): Promise<AuthStat
       message: err?.message,
       email,
     });
+    
+    // If Auth user was created but Firestore write failed, roll back to prevent orphan accounts
+    if (uid) {
+        try {
+            await adminAuth.deleteUser(uid);
+        } catch (rollbackError: any) {
+            console.error('Error during signup rollback (deleting user)', {
+                originalErrorCode: code,
+                uidToDelete: uid,
+                rollbackErrorCode: rollbackError?.code,
+                rollbackErrorMessage: rollbackError?.message,
+            });
+        }
+    }
     
     return state;
   }

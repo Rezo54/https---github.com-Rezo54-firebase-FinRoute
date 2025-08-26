@@ -1,3 +1,4 @@
+
 // src/lib/firebase-server.ts
 // No "use server" here. This is a server-only *utility* (not a Server Action module).
 import 'server-only';
@@ -74,6 +75,13 @@ function ensureAdmin(): admin.app.App | null {
       msg.includes('already exists');
     if (!dup) {
       // Surface the real cause in dev; avoid generic rethrows that hide parse errors
+      console.error('[Admin init failed]', {
+        name: err?.name,
+        code: err?.code,
+        message: err?.message,
+        stack: err?.stack,
+        toString: err?.toString?.(),
+      });
       if (process.env.NODE_ENV !== 'production') throw err;
       throw new Error('Failed to initialize Firebase Admin SDK.');
     }
