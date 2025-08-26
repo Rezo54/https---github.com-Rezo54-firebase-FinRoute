@@ -89,7 +89,9 @@ export function AuthForm() {
 
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
-      await startSessionAndRedirect(cred.user.uid); // server sets cookie & redirects
+      // The server action will handle the redirect, which is more reliable
+      // than a client-side redirect after a server-side session is created.
+      await startSessionAndRedirect(cred.user.uid); 
     } catch (err) {
       console.error('Login Error (raw):', err);
       const code = getErrorCode(err);
@@ -148,8 +150,10 @@ export function AuthForm() {
         },
         { merge: true }
       );
-
-      await startSessionAndRedirect(uid); // server sets cookie & redirects
+      
+      // The server action will handle the redirect, which is more reliable
+      // than a client-side redirect after a server-side session is created.
+      await startSessionAndRedirect(uid);
     } catch (err) {
       console.error('Signup Error (raw):', err);
       const code = getErrorCode(err);
