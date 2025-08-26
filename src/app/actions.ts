@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { redirect } from 'next/navigation';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs, addDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { createSession, deleteSession, getSession } from '@/lib/session';
 import type { FinancialPlanInput, FinancialPlanOutput } from '@/ai/flows/financial-plan-generator';
 import { financialPlanGenerator } from '@/ai/flows/financial-plan-generator';
@@ -144,51 +144,32 @@ export async function signup(_: AuthState, formData: FormData): Promise<AuthStat
 
   const { email, password, age } = parsed.data;
   const displayName = email.split('@')[0];
-  const adminAuth = getAdminAuth();
-  const adminDb = getAdminDb();
-  let uid: string | null = null;
 
   try {
-    // 1) Create Auth user using Admin SDK
-    const userRecord = await adminAuth.createUser({ email, password, displayName });
-    uid = userRecord.uid;
-
-    // 2) Create Firestore profile (server time; keep schema minimal)
-    await adminDb.doc(`users/${uid}`).set({
+    // 1) Create Auth user (client SDK)
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const uid = cred.user.uid;
+    // 2) Create user profile (no password in Firestore)
+    await setDoc(doc(db, 'users', uid), {
       email,
       displayName,
       age,
-      createdAt: new Date().toISOString(),
-    });
-    
-    // 3) Create session
+      userType: 'user',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+    // 3) Create your app session
     await createSession(uid);
 
   } catch (err: any) {
     const code = String(err?.code ?? '');
     const state = mapSignupError(code);
-
-    // Detailed server logs
+    // Helpful logs (don’t leak secrets)
     console.error('Signup error', {
       code,
       message: err?.message,
       email,
     });
-    
-    // If Auth user was created but Firestore write failed, roll back to prevent orphan accounts
-    if (uid) {
-        try {
-            await adminAuth.deleteUser(uid);
-        } catch (rollbackError: any) {
-            console.error('Error during signup rollback (deleting user)', {
-                originalErrorCode: code,
-                uidToDelete: uid,
-                rollbackErrorCode: rollbackError?.code,
-                rollbackErrorMessage: rollbackError?.message,
-            });
-        }
-    }
-    
     return state;
   }
   
@@ -466,3 +447,5 @@ export async function deleteGoal(goalName: string) {
         await setDoc(latestPlanDoc.ref, { goals: updatedGoals }, { merge: true });
     }
 }
+
+    
