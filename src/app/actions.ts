@@ -164,10 +164,11 @@ export async function signup(_: AuthState, formData: FormData): Promise<AuthStat
   } catch (err: any) {
     const code = String(err?.code ?? '');
     const state = mapSignupError(code);
-    // Helpful logs (don’t leak secrets)
+    // Detailed server logs (don’t leak secrets)
     console.error('Signup error', {
       code,
       message: err?.message,
+      stack: err?.stack,
       email,
     });
     return state;
@@ -447,5 +448,4 @@ export async function deleteGoal(goalName: string) {
         await setDoc(latestPlanDoc.ref, { goals: updatedGoals }, { merge: true });
     }
 }
-
     
