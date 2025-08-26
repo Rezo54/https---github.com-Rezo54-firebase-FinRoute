@@ -1,6 +1,7 @@
+// src/components/auth/auth-form.tsx
 'use client';
 
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { FirebaseError } from 'firebase/app';
 import {
@@ -11,7 +12,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { startSession } from '@/app/actions';
+import { startSessionAndRedirect } from '@/app/actions';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,13 +41,12 @@ function SubmitButton({ isSignUp, pending }: { isSignUp: boolean; pending: boole
 
 export function AuthForm() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const mode = searchParams.get('mode') || 'login';
   const isSignUp = mode === 'signup';
 
   const [pending, setPending] = useState(false);
   const [state, setState] = useState<UIState>(initialState);
-  const [emailInput, setEmailInput] = useState(''); // for reset flow
+  const [emailInput, setEmailInput] = useState('');
 
   const mapAuthError = (code: string, isSignup: boolean): UIState => {
     switch (code) {
@@ -89,9 +89,7 @@ export function AuthForm() {
 
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
-      const res = await startSession(cred.user.uid);
-      if (!res?.ok) throw new Error('session-set-failed');
-      router.push('/dashboard');
+      await startSessionAndRedirect(cred.user.uid); // server sets cookie & redirects
     } catch (err) {
       console.error('Login Error (raw):', err);
       const code = getErrorCode(err);
@@ -151,10 +149,7 @@ export function AuthForm() {
         { merge: true }
       );
 
-      const res = await startSession(uid);
-      if (!res?.ok) throw new Error('session-set-failed');
-
-      router.push('/dashboard');
+      await startSessionAndRedirect(uid); // server sets cookie & redirects
     } catch (err) {
       console.error('Signup Error (raw):', err);
       const code = getErrorCode(err);
@@ -220,11 +215,7 @@ export function AuthForm() {
             <Input id="password" name="password" type="password" required />
             {state?.errors?.password && <p className="text-sm font-medium text-destructive">{state.errors.password[0]}</p>}
             {!isSignUp && (
-              <button
-                type="button"
-                className="text-xs underline text-primary"
-                onClick={onForgotPassword}
-              >
+              <button type="button" className="text-xs underline text-primary" onClick={onForgotPassword}>
                 Forgot password?
               </button>
             )}
