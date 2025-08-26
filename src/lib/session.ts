@@ -8,11 +8,11 @@ export async function createSession(uid: string) {
   const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
   const session = await encrypt({ uid, expires })
 
-  cookies().set('session', session, {
+  cookies().set('session', token, {
     httpOnly: true,
-    secure: true,
-    expires: expires,
+    secure: process.env.NODE_ENV === 'production', // <-- IMPORTANT
     sameSite: 'lax',
+    expires,
     path: '/',
   })
 }
