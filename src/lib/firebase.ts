@@ -1,28 +1,18 @@
+import { initializeApp, getApps } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
-// Import the functions you need from the SDKs you need
-import { initializeApp, getApps } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-
-// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCsuS0nDiCqPPFoQkTRU7Cs3BSDHfvTOTY",
-  authDomain: "finroute-49u64.firebaseapp.com",
-  projectId: "finroute-49u64",
-  storageBucket: "finroute-49u64.firebasestorage.app",
-  messagingSenderId: "435728537189",
-  appId: "1:435728537189:web:324058f04ce4fd37ccd88c",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET, // usually "<project-id>.appspot.com"
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_SENDER_ID!,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
 };
 
-// Initialize Firebase
-let app;
-if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApps()[0];
-}
+const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-export { app, auth, db };
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export { app };
