@@ -1,8 +1,8 @@
 // src/components/auth/auth-form.tsx
 'use client';
 
-import { useSearchParams, useRouter } from 'next/navigation';
-import { useActionState, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useActionState } from 'react';
 import { login, signup, type AuthState } from '@/app/actions';
 
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,6 @@ function SubmitButton({ isSignUp, pending }: { isSignUp: boolean; pending: boole
 }
 
 export function AuthForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const mode = searchParams.get('mode') || 'login';
   const isSignUp = mode === 'signup';
@@ -33,23 +32,9 @@ export function AuthForm() {
   const [loginState, loginAction, isLoginPending] = useActionState(login, initialState);
   const [signupState, signupAction, isSignupPending] = useActionState(signup, initialState);
 
-  const [emailInput, setEmailInput] = useState(''); // Keep for password reset
-
   const state = isSignUp ? signupState : loginState;
   const pending = isSignUp ? isSignupPending : isLoginPending;
   const formAction = isSignUp ? signupAction : loginAction;
-
-  useEffect(() => {
-    if (state.status === 'success') {
-      router.push('/dashboard');
-    }
-  }, [state.status, router]);
-
-  const onForgotPassword = async () => {
-    // This part can remain as is, since it's a secondary action.
-    // However, it could also be converted to a server action.
-    // For now, we'll leave it.
-  };
 
   return (
     <Card className="w-full max-w-sm bg-card border-border">
@@ -67,8 +52,6 @@ export function AuthForm() {
               type="email"
               placeholder="you@example.com"
               required
-              onChange={(e) => setEmailInput(e.target.value)}
-              defaultValue={state.errors?.fieldErrors.email?.[0] ? '' : undefined}
             />
             {state.errors?.fieldErrors.email && <p className="text-sm font-medium text-destructive">{state.errors.fieldErrors.email[0]}</p>}
           </div>
@@ -76,7 +59,7 @@ export function AuthForm() {
           {isSignUp && (
             <div className="space-y-2">
               <Label htmlFor="age">Age</Label>
-              <Input id="age" name="age" type="number" placeholder="e.g. 30" required defaultValue={state.errors?.fieldErrors.age?.[0] ? '' : undefined} />
+              <Input id="age" name="age" type="number" placeholder="e.g. 30" required />
               {state.errors?.fieldErrors.age && <p className="text-sm font-medium text-destructive">{state.errors.fieldErrors.age[0]}</p>}
             </div>
           )}
@@ -85,11 +68,6 @@ export function AuthForm() {
             <Label htmlFor="password">Password</Label>
             <Input id="password" name="password" type="password" required />
             {state.errors?.fieldErrors.password && <p className="text-sm font-medium text-destructive">{state.errors.fieldErrors.password[0]}</p>}
-            {!isSignUp && (
-              <button type="button" className="text-xs underline text-primary" onClick={onForgotPassword}>
-                Forgot password?
-              </button>
-            )}
           </div>
 
           {state.status === 'error' && (

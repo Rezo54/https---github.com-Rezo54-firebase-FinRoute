@@ -283,9 +283,9 @@ export async function deleteGoal(goalName: string) {
 // --- New Auth Actions ---
 
 export type AuthState = {
-  status: 'idle' | 'success' | 'error';
+  status: 'idle' | 'error';
   message: string;
-  errors?: z.ZodError<any> | null;
+  errors?: z.ZodError<any>['formErrors'] | null;
 };
 
 const loginSchema = z.object({
@@ -309,7 +309,6 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
   try {
     const cred = await signInWithEmailAndPassword(auth, email, password);
     await createSession(cred.user.uid);
-    return { status: 'success', message: 'Logged in successfully.' };
   } catch (error) {
     if (error instanceof FirebaseError) {
       switch (error.code) {
@@ -318,11 +317,15 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
         case 'auth/wrong-password':
           return { status: 'error', message: 'Invalid email or password.' };
         default:
+           console.error('Firebase login error:', error);
           return { status: 'error', message: 'An unexpected error occurred.' };
       }
     }
+    console.error('Generic login error:', error);
     return { status: 'error', message: 'An unexpected error occurred.' };
   }
+  
+  redirect('/dashboard');
 }
 
 const signupSchema = z.object({
@@ -358,9 +361,13 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
 
     await createSession(uid);
 
-    return { status: 'success', message: 'Account created successfully.' };
   } catch (error) {
      if (error instanceof FirebaseError) {
+        console.error('Firebase signup error:', {
+          code: error.code,
+          message: error.message,
+          stack: error.stack,
+        });
       switch (error.code) {
         case 'auth/email-already-in-use':
           return { status: 'error', message: 'This email is already in use.' };
@@ -368,6 +375,9 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
           return { status: 'error', message: 'An unexpected error occurred during signup.' };
       }
     }
+    console.error('Generic signup error:', error);
     return { status: 'error', message: 'An unexpected error occurred.' };
   }
+  
+  redirect('/dashboard');
 }
