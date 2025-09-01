@@ -3,11 +3,16 @@
 
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
-import { doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs, addDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
 import { createSession, deleteSession, getSession } from '@/lib/session';
 import type { FinancialPlanInput } from '@/ai/flows/financial-plan-generator';
 import { financialPlanGenerator } from '@/ai/flows/financial-plan-generator';
+import { FirebaseError } from 'firebase/app';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from 'firebase/auth';
 
 /** Establish an httpOnly session cookie (no redirect). */
 export async function startSession(uid: string) {
@@ -271,5 +276,98 @@ export async function deleteGoal(goalName: string) {
     const latestPlanData = latestPlanDoc.data();
     const updatedGoals = latestPlanData.goals.filter((g: any) => g.name !== goalName);
     await setDoc(latestPlanDoc.ref, { goals: updatedGoals }, { merge: true });
+  }
+}
+
+
+// --- New Auth Actions ---
+
+export type AuthState = {
+  status: 'idle' | 'success' | 'error';
+  message: string;
+  errors?: z.ZodError<any> | null;
+};
+
+const loginSchema = z.object({
+  email: z.string().email('Invalid email address.'),
+  password: z.string().min(6, 'Password must be at least 6 characters.'),
+});
+
+export async function login(prevState: AuthState, formData: FormData): Promise<AuthState> {
+  const validated = loginSchema.safeParse(Object.fromEntries(formData));
+
+  if (!validated.success) {
+    return {
+      status: 'error',
+      message: 'Invalid form data.',
+      errors: validated.error.flatten(),
+    };
+  }
+
+  const { email, password } = validated.data;
+
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    await createSession(cred.user.uid);
+    return { status: 'success', message: 'Logged in successfully.' };
+  } catch (error) {
+    if (error instanceof FirebaseError) {
+      switch (error.code) {
+        case 'auth/invalid-credential':
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+          return { status: 'error', message: 'Invalid email or password.' };
+        default:
+          return { status: 'error', message: 'An unexpected error occurred.' };
+      }
+    }
+    return { status: 'error', message: 'An unexpected error occurred.' };
+  }
+}
+
+const signupSchema = z.object({
+  email: z.string().email('Invalid email address.'),
+  password: z.string().min(6, 'Password must be at least 6 characters.'),
+  age: z.coerce.number().min(13, 'You must be at least 13 years old.').max(120, 'Please enter a valid age.'),
+});
+
+export async function signup(prevState: AuthState, formData: FormData): Promise<AuthState> {
+  const validated = signupSchema.safeParse(Object.fromEntries(formData));
+
+  if (!validated.success) {
+    return {
+      status: 'error',
+      message: 'Invalid form data.',
+      errors: validated.error.flatten(),
+    };
+  }
+
+  const { email, password, age } = validated.data;
+
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const uid = cred.user.uid;
+    
+    await setDoc(doc(db, 'users', uid), {
+      email,
+      age,
+      userType: 'user',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+
+    await createSession(uid);
+
+    return { status: 'success', message: 'Account created successfully.' };
+  } catch (error) {
+     if (error instanceof FirebaseError) {
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          return { status: 'error', message: 'This email is already in use.' };
+        default:
+          return { status: 'error', message: 'An unexpected error occurred during signup.' };
+      }
+    }
+    return { status: 'error', message: 'An unexpected error occurred.' };
   }
 }
