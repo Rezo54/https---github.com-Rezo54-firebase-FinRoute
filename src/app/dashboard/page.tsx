@@ -6,14 +6,12 @@ import { useToast } from "@/hooks/use-toast";
 import { type FinancialPlanOutput } from '@/ai/flows/financial-plan-generator';
 import { useCurrency } from '@/hooks/use-currency';
 
-import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Achievements } from '@/components/dashboard/achievements';
 import { KeyMetrics } from '@/components/dashboard/key-metrics';
 import { Reminders } from '@/components/dashboard/reminders';
 import { GoalProgressChart } from '@/components/dashboard/goal-progress-chart';
 import { UpdateGoalDialog } from '@/components/dashboard/update-goal-dialog';
-import { DashboardTabs } from '@/components/dashboard/dashboard-tabs';
 import { getDashboardState, updateGoal, deleteGoal } from '@/app/actions';
 import { Loader2 } from 'lucide-react';
 
@@ -138,55 +136,49 @@ function Dashboard() {
   const hasPlan = !!state.plan;
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground">
-      <Header />
-      <main className="flex-1 container mx-auto p-4 md:p-8">
-        <DashboardTabs />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start mt-8">
-          
-          <div className="lg:col-span-2 space-y-8">
-            {!hasPlan ? (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Welcome to FinRoute</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex items-center justify-center min-h-[200px]">
-                        <div className="text-center text-muted-foreground">
-                            <p>Get started by setting your financial goals.</p>
-                            <p>Go to the "Goals" tab to create a new plan.</p>
-                        </div>
-                    </CardContent>
-                </Card>
-            ) : (
-              <GoalProgressChart data={goals ?? []} currency={currency} onGoalSelect={handleGoalSelect} />
-            )}
-          </div>
-          
-          <div className="space-y-8">
-            <KeyMetrics 
-              currency={currency} 
-              data={state.keyMetrics ?? {}}
-            />
-             {hasPlan && (
-                <>
-                    <Achievements achievements={achievements} />
-                    <Reminders goals={goals ?? []} />
-                </>
-            )}
-          </div>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start mt-8">
+      
+      <div className="lg:col-span-2 space-y-8">
+        {!hasPlan ? (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Welcome to FinRoute</CardTitle>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center min-h-[200px]">
+                    <div className="text-center text-muted-foreground">
+                        <p>Get started by setting your financial goals.</p>
+                        <p>Go to the "Goals" tab to create a new plan.</p>
+                    </div>
+                </CardContent>
+            </Card>
+        ) : (
+          <GoalProgressChart data={goals ?? []} currency={currency} onGoalSelect={handleGoalSelect} />
+        )}
+      </div>
+      
+      <div className="space-y-8">
+        <KeyMetrics 
+          currency={currency} 
+          data={state.keyMetrics ?? {}}
+        />
+         {hasPlan && (
+            <>
+                <Achievements achievements={achievements} />
+                <Reminders goals={goals ?? []} />
+            </>
+        )}
+      </div>
 
-          <UpdateGoalDialog 
-            isOpen={isDialogOpen}
-            onOpenChange={setIsDialogOpen}
-            goal={selectedGoal}
-            onUpdate={handleUpdateGoal}
-            onDelete={handleDeleteGoal}
-            currency={currency}
-            isUpdating={isUpdating}
-            isDeleting={isDeleting}
-          />
-        </div>
-      </main>
+      <UpdateGoalDialog 
+        isOpen={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        goal={selectedGoal}
+        onUpdate={handleUpdateGoal}
+        onDelete={handleDeleteGoal}
+        currency={currency}
+        isUpdating={isUpdating}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 }
@@ -194,21 +186,15 @@ function Dashboard() {
 
 function DashboardSkeleton() {
   return (
-     <div className="flex flex-col min-h-screen bg-background text-foreground">
-      <Header />
-      <main className="flex-1 container mx-auto p-4 md:p-8">
-        <DashboardTabs />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start mt-8">
-          <div className="lg:col-span-2 space-y-8">
-             <Card className="flex items-center justify-center min-h-[350px]">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-             </Card>
-          </div>
-          <div className="space-y-8">
-            <KeyMetrics currency={"ZAR"} data={null} />
-          </div>
-        </div>
-      </main>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start mt-8">
+      <div className="lg:col-span-2 space-y-8">
+         <Card className="flex items-center justify-center min-h-[350px]">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+         </Card>
+      </div>
+      <div className="space-y-8">
+        <KeyMetrics currency={"ZAR"} data={null} />
+      </div>
     </div>
   )
 }
