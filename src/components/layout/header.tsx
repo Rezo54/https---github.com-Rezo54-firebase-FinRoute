@@ -101,6 +101,8 @@ export function Header() {
             onChange={handleFileChange}
             className="hidden" 
             accept="image/*"
+            title="Upload your profile photo"
+            placeholder="Choose a profile photo"
           />
 
         </div>

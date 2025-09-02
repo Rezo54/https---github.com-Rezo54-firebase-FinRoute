@@ -3,60 +3,152 @@
 
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
-import { doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
-import { createSession, deleteSession, getSession } from '@/lib/session';
-import type { FinancialPlanInput } from '@/ai/flows/financial-plan-generator';
-import { financialPlanGenerator } from '@/ai/flows/financial-plan-generator';
+
+import { createSession, deleteSession, getSession } from '@/server/session';
+
+// Web Auth SDK is fine to use in server actions for email/password flows
+import { auth } from '@/lib/firebase';
 import { FirebaseError } from 'firebase/app';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from 'firebase/auth';
 
-/** Establish an httpOnly session cookie (no redirect). */
-export async function startSession(uid: string) {
-  await createSession(uid);
-  return { ok: true };
+import type { FinancialPlanInput } from '@/ai/flows/financial-plan-generator';
+import { financialPlanGenerator } from '@/ai/flows/financial-plan-generator';
+
+import { revalidatePath } from 'next/cache';
+
+
+// --- Reminders (users/{uid}/reminders) ---
+
+type ReminderDoc = {
+  title: string;
+  goalName?: string | null;
+  cadence: 'monthly' | 'once';
+  nextRunAt: string;   // ISO string for ordering
+  createdAt: any;      // serverTimestamp()
+};
+
+export async function createReminderAction(formData: FormData) {
+  const session = await getSession();
+  if (!session?.uid) redirect('/');
+
+  const [{ adminDb }, { FieldValue }] = await Promise.all([
+    import('@/server/firebase-admin'),
+    import('firebase-admin/firestore'),
+  ]);
+
+  const cadence = (String(formData.get('cadence') || 'monthly') as 'monthly' | 'once');
+  const title = String(formData.get('title') || 'Update goal savings');
+  const goalName = (formData.get('goalName') ? String(formData.get('goalName')) : null) || null;
+
+  let nextRunAtISO: string;
+  if (cadence === 'monthly') {
+    // last day of THIS month at 09:00 UTC
+    const now = new Date();
+    const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 9, 0, 0));
+    nextRunAtISO = next.toISOString();
+  } else {
+    const raw = String(formData.get('runAt') || '');
+    if (raw) nextRunAtISO = new Date(raw).toISOString();
+    else {
+      const tmr = new Date();
+      tmr.setDate(tmr.getDate() + 1);
+      tmr.setHours(9, 0, 0, 0);
+      nextRunAtISO = tmr.toISOString();
+    }
+  }
+
+  await adminDb
+    .collection('users')
+    .doc(session.uid)
+    .collection('reminders')
+    .add({
+      title,
+      goalName,
+      cadence,
+      nextRunAt: nextRunAtISO,
+      createdAt: FieldValue.serverTimestamp(),
+    } as ReminderDoc);
+    revalidatePath('/dashboard');            // ✅ force dashboard to refresh
+
+  return { ok: true, message: 'Reminder saved.' };
 }
 
-/** Establish session cookie and redirect immediately (prevents client-side race). */
-export async function startSessionAndRedirect(uid: string, to = '/dashboard') {
-  await createSession(uid);
-  redirect(to);
+export async function deleteReminderAction(formData: FormData) {
+  const session = await getSession();
+  if (!session?.uid) redirect('/');
+
+  const { adminDb } = await import('@/server/firebase-admin');
+
+  const id = String(formData.get('id') || '');
+  if (!id) return { ok: false, message: 'Missing reminder id.' };
+
+  // Soft-delete to keep it simple
+  await adminDb.doc(`users/${session.uid}/reminders/${id}`).set({ __deleted: true }, { merge: true });
+  revalidatePath('/dashboard');            // ✅
+  return { ok: true, message: 'Reminder deleted.' };
 }
 
-/** Simple connectivity check */
-export async function pingServer() {
-  console.log('Ping received on server.');
-  return { message: 'Server is responding!' };
-}
+export type DashboardState = {
+  message: string;
+  plan: string | null;
+  goals: any[] | null;
+  keyMetrics: any | null;
+  currency: string;
+  createdAt: string | null;
+  plansCount: number;
+  totalGoals: number;
+  allGoals: {
+    name: string;
+    currentAmount: number;
+    targetAmount: number;
+    planId: string;
+    createdAt?: string | null;
+  }[];
+  reminders?: {
+    id: string;
+    title: string;
+    goalName?: string | null;
+    cadence: 'monthly' | 'once';
+    nextRunAt: string;
+  }[];
+  achievements?: {
+    id: string;
+    title: string;
+    icon: string;         // e.g. "Award", "CalendarCheck"
+    createdAt: string | null;
+  }[];
+};
 
-export async function logout() {
-  await deleteSession();
-  redirect('/');
-}
 
-// ---------------- App feature actions (unchanged) ----------------
 
-const goalSchema = z.object({
-  id: z.string(),
-  name: z.string().min(1, 'Goal name is required.'),
-  description: z.string().optional().transform((val) => (val === '' ? undefined : val)),
-  targetAmount: z.coerce.number().min(1, 'Target amount must be greater than 0.'),
-  currentAmount: z.coerce.number().min(0, 'Current amount must be a positive number.'),
-  targetDate: z.string().min(1, 'Target date is required.'),
-}).refine(
-  (data) => {
-    if (data.currentAmount === null || data.targetAmount === null) return true;
-    return data.currentAmount <= data.targetAmount;
-  },
-  { message: 'Current amount cannot be greater than target amount.', path: ['currentAmount'] }
-);
+/* ---------------------------------- utils ---------------------------------- */
+
+const goalSchema = z
+  .object({
+    id: z.string(),
+    name: z.string().min(1, 'Goal name is required.'),
+    description: z.string().optional().transform((val) => (val === '' ? undefined : val)),
+    targetAmount: z.coerce.number().min(1, 'Target amount must be greater than 0.'),
+    currentAmount: z.coerce.number().min(0, 'Current amount must be a positive number.'),
+    targetDate: z.string().min(1, 'Target date is required.'),
+  })
+  .refine(
+    (data) => {
+      if (data.currentAmount === null || data.targetAmount === null) return true;
+      return data.currentAmount <= data.targetAmount;
+    },
+    { message: 'Current amount cannot be greater than target amount.', path: ['currentAmount'] },
+  );
 
 const formSchema = z.object({
   netWorth: z.coerce.number().min(0, 'Net worth must be a positive number.'),
-  savingsRate: z.coerce.number().min(0, 'Savings rate must be a positive number.').max(100, 'Savings rate cannot exceed 100.'),
+  savingsRate: z.coerce
+    .number()
+    .min(0, 'Savings rate must be a positive number.')
+    .max(100, 'Savings rate cannot exceed 100.'),
   totalDebt: z.coerce.number().min(0, 'Total debt must be a positive number.'),
   monthlyNetSalary: z.coerce.number().min(1, 'Monthly salary must be a positive number.'),
   goals: z.array(goalSchema).min(1, 'Please add at least one financial goal.'),
@@ -68,60 +160,125 @@ export type PlanGenerationState = {
   message: string;
   errors?: z.ZodError<any>['formErrors'] | null;
   plan?: string | null;
-  goals?: {
-    name: string;
-    description?: string;
-    targetAmount: number;
-    currentAmount: number;
-    targetDate: string;
-    icon: string;
-  }[] | null;
-  keyMetrics?: {
-    netWorth: number;
-    savingsRate: number;
-    debtToIncome: number;
-    totalDebt: number;
-    monthlyNetSalary: number;
-  } | null;
+  goals?:
+    | {
+        name: string;
+        description?: string;
+        targetAmount: number;
+        currentAmount: number;
+        targetDate: string;
+        icon: string;
+      }[]
+    | null;
+  keyMetrics?:
+    | {
+        netWorth: number;
+        savingsRate: number;
+        debtToIncome: number;
+        totalDebt: number;
+        monthlyNetSalary: number;
+      }
+    | null;
   newAchievement?: { title: string; icon: string } | null;
 };
 
-export async function generatePlan(prevState: PlanGenerationState, formData: FormData): Promise<PlanGenerationState> {
+type SavePlanState = { message: string; errors?: z.ZodError<any>['formErrors'] | null };
+type ProfileState = { message: string; errors?: z.ZodError<any>['formErrors'] | null };
+
+/* --------------------------- session helpers (ok) --------------------------- */
+
+export async function startSession(uid: string) {
+  await createSession(uid);
+  return { ok: true };
+}
+
+export async function startSessionAndRedirect(uid: string, to = '/dashboard') {
+  await createSession(uid);
+  redirect(to);
+}
+
+export async function pingServer() {
+  console.log('Ping received on server.');
+  return { message: 'Server is responding!' };
+}
+
+export async function logout() {
+  await deleteSession();
+  redirect('/');
+}
+
+/* ----------------------------- generate a plan ----------------------------- */
+
+export async function generatePlan(
+  _prevState: PlanGenerationState,
+  formData: FormData,
+): Promise<PlanGenerationState> {
   const session = await getSession();
   if (!session?.uid) redirect('/');
 
-  try {
-    const rawData: Record<string, any> = {};
-    const goalEntries: Record<string, any> = {};
+  // Lazy-load Admin pieces here to avoid bundling in client/edge
+  const [{ adminDb }, { FieldValue }] = await Promise.all([
+    import('@/server/firebase-admin'),
+    import('firebase-admin/firestore'),
+  ]);
 
-    for (const [key, value] of formData.entries()) {
-      if (key.startsWith('goal-')) {
-        const [, id, field] = key.split('-');
-        if (!goalEntries[id]) goalEntries[id] = { id };
-        goalEntries[id][field] = value;
+  try {
+    // guard: don’t call Genkit without a key
+    const hasGenkitKey = !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
+    if (!hasGenkitKey) {
+      console.error('[generatePlan] Missing GEMINI_API_KEY/GOOGLE_API_KEY');
+      return { message: 'AI is not configured on this server.', errors: null, plan: null };
+    }
+
+    // Gather and normalize the form data
+    const raw: Record<string, any> = {};
+    const goalsById: Record<string, any> = {};
+    for (const [k, v] of formData.entries()) {
+      if (k.startsWith('goal-')) {
+        const [, id, field] = k.split('-');
+        goalsById[id] ??= { id };
+        goalsById[id][field] = v;
       } else {
-        rawData[key] = value;
+        raw[k] = v;
       }
     }
-    rawData.goals = Object.values(goalEntries);
+    raw.goals = Object.values(goalsById);
 
-    const validated = formSchema.safeParse(rawData);
+    const validated = formSchema.safeParse(raw);
     if (!validated.success) {
       return { message: 'Invalid form data.', errors: validated.error.flatten(), plan: null };
     }
 
-    const { netWorth, savingsRate, totalDebt, monthlyNetSalary, goals, currency, isFirstPlan } = validated.data;
+    const {
+      netWorth,
+      savingsRate,
+      totalDebt,
+      monthlyNetSalary,
+      goals,
+      currency,
+      isFirstPlan,
+    } = validated.data;
 
-    const userDocRef = doc(db, 'users', session.uid);
-    const userDoc = await getDoc(userDocRef);
-    const userData = userDoc.data();
+    // Read user profile
+    const userSnap = await adminDb.doc(`users/${session.uid}`).get();
+    const userData = userSnap.data();
     if (!userData) return { message: 'User profile not found.', errors: null, plan: null };
 
-    const debtToIncome = monthlyNetSalary > 0 ? Math.round((totalDebt / monthlyNetSalary) * 100) : 0;
+    const debtToIncome =
+      monthlyNetSalary > 0 ? Math.round((totalDebt / monthlyNetSalary) * 100) : 0;
     const age = userData.age;
 
     const currencySymbols: Record<string, string> = {
-      USD: '$', EUR: '€', JPY: '¥', GBP: '£', NGN: '₦', ZAR: 'R', KES: 'KSh', CNY: '¥', INR: '₹', SGD: 'S$',
+      USD: '$',
+      EUR: '€',
+      JPY: '¥',
+      GBP: '£',
+      NGN: '₦',
+      ZAR: 'R',
+      KES: 'KSh',
+      CNY: '¥',
+      INR: '₹',
+      SGD: 'S$',
     };
 
     const input: FinancialPlanInput = {
@@ -133,51 +290,83 @@ export async function generatePlan(prevState: PlanGenerationState, formData: For
 
     const result = await financialPlanGenerator(input);
     if (!result.plan) {
-      return { message: 'The AI could not generate a plan based on the data provided. Please try again with more details.', errors: null, plan: null };
+      return {
+        message: 'The AI could not generate a plan from the data provided.',
+        errors: null,
+        plan: null,
+      };
     }
 
-    const keyMetrics = { netWorth, savingsRate, debtToIncome, totalDebt, monthlyNetSalary };
-    const planToSave = {
+    // check if any plan exists (for achievement type)
+    const existing = await adminDb
+      .collection('users')
+      .doc(session.uid)
+      .collection('plans')
+      .limit(1)
+      .get();
+    const hasAnyPlan = !existing.empty;
+
+    // title = first goal (AI result preferred), then form goal, else fallback
+    const title = result.goals?.[0]?.name || goals?.[0]?.name || 'Plan';
+
+    // append new plan with server timestamp
+    await adminDb.collection('users').doc(session.uid).collection('plans').add({
+      title,
       plan: result.plan,
       goals: result.goals,
-      keyMetrics,
-      createdAt: new Date().toISOString(),
+      keyMetrics: { netWorth, savingsRate, debtToIncome, totalDebt, monthlyNetSalary },
       currency,
-    };
+      createdAt: FieldValue.serverTimestamp(),
+    });
 
-    const plansCollectionRef = collection(db, 'users', session.uid, 'plans');
-    await addDoc(plansCollectionRef, planToSave);
+    // achievement
+    const achievement = hasAnyPlan
+      ? { title: 'Planner', icon: 'CalendarCheck' }
+      : { title: 'First Planner', icon: 'Award' };
+
+    await adminDb
+      .collection('users')
+      .doc(session.uid)
+      .collection('achievements')
+      .add({
+        ...achievement,
+        code: hasAnyPlan ? 'planner' : 'first_planner',
+        createdAt: FieldValue.serverTimestamp(),
+      });
 
     return {
       message: 'success',
       errors: null,
       plan: result.plan,
       goals: result.goals,
-      keyMetrics,
-      newAchievement: isFirstPlan ? { title: 'First Planner', icon: 'Award' } : null,
+      keyMetrics: { netWorth, savingsRate, debtToIncome, totalDebt, monthlyNetSalary },
+      newAchievement: isFirstPlan ? { title: 'First Planner', icon: 'Award' } : achievement,
     };
-  } catch (error) {
-    console.error('Error generating plan:', error);
-    return { message: 'An unexpected error occurred on the server. Please try again later.', errors: null, plan: null };
+  } catch (err) {
+    console.error('Error generating plan:', err);
+    return { message: 'An unexpected server error occurred.', errors: null, plan: null };
   }
 }
 
+/* ------------------------------- save a plan ------------------------------- */
+
 const savePlanSchema = z.object({ planId: z.string() });
 
-type SavePlanState = { message: string; errors?: z.ZodError<any>['formErrors'] | null };
-
-export async function savePlan(prevState: SavePlanState, formData: FormData): Promise<SavePlanState> {
+export async function savePlan(
+  _prev: SavePlanState,
+  formData: FormData,
+): Promise<SavePlanState> {
   const session = await getSession();
   if (!session?.uid) redirect('/');
 
-  const validatedFields = savePlanSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!validatedFields.success) return { message: 'Invalid data for saving plan.', errors: validatedFields.error.flatten() };
+  const validated = savePlanSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!validated.success) return { message: 'Invalid data for saving plan.', errors: validated.error.flatten() };
 
-  const { planId } = validatedFields.data;
+  const { adminDb } = await import('@/server/firebase-admin');
 
   try {
-    const planRef = doc(db, 'users', session.uid, 'plans', planId);
-    await setDoc(planRef, { saved: true }, { merge: true });
+    const { planId } = validated.data;
+    await adminDb.doc(`users/${session.uid}/plans/${planId}`).set({ saved: true }, { merge: true });
     return { message: 'success' };
   } catch (error) {
     console.error('Failed to save plan:', error);
@@ -185,50 +374,154 @@ export async function savePlan(prevState: SavePlanState, formData: FormData): Pr
   }
 }
 
-export async function getDashboardState() {
+/* ---------------------------- dashboard snapshot --------------------------- */
+
+export async function getDashboardState(): Promise<DashboardState> {
   const session = await getSession();
   if (!session?.uid) redirect('/');
 
-  const plansRef = collection(db, 'users', session.uid, 'plans');
-  const q = query(plansRef, orderBy('createdAt', 'desc'), limit(1));
-  const querySnapshot = await getDocs(q);
+  const { adminDb } = await import('@/server/firebase-admin');
+  const plansCol = adminDb.collection('users').doc(session.uid).collection('plans');
 
-  if (querySnapshot.empty) {
-    return { message: 'No plan found', plan: null, goals: null, keyMetrics: null };
+    const [latestSnap, allSnap, remindersSnap, achievementsSnap] = await Promise.all([
+    plansCol.orderBy('createdAt', 'desc').limit(1).get(),
+    plansCol.orderBy('createdAt', 'desc').get(),
+    adminDb
+    .collection('users')
+    .doc(session.uid)
+    .collection('reminders')
+    .orderBy('nextRunAt', 'asc')
+    .get().catch(() => null),
+    adminDb.collection('users')
+    .doc(session.uid)
+    .collection('achievements')
+    .orderBy('createdAt', 'desc')
+    .get()
+    .catch(() => null),
+    ]);
+
+  const toISO = (v: any) =>
+    typeof v?.toDate === 'function' ? v.toDate().toISOString() : (v ? new Date(v).toISOString() : null);
+
+  if (latestSnap.empty) {
+    return {
+      message: 'No plan found',
+      plan: null,
+      goals: null,
+      keyMetrics: null,
+      currency: 'ZAR',
+      createdAt: null,
+      plansCount: 0,
+      totalGoals: 0,
+      allGoals: [],
+      reminders: [],
+    };
   }
 
-  const latestPlan = querySnapshot.docs[0].data();
-  const planDate = new Date(latestPlan.createdAt);
+  // Aggregate ALL goals
+  const plansCount = allSnap.size;
+  const allGoals: DashboardState['allGoals'] = [];
+  allSnap.forEach((doc) => {
+    const data = doc.data();
+    if (Array.isArray(data.goals)) {
+      data.goals.forEach((g: any) => {
+        allGoals.push({
+          name: g?.name ?? 'Goal',
+          currentAmount: Number(g?.currentAmount ?? 0),
+          targetAmount: Number(g?.targetAmount ?? 0),
+          planId: doc.id,
+          createdAt: toISO(data.createdAt),
+        });
+      });
+    }
+  });
+
+  const totalGoals = allGoals.length;
+
+  // Latest plan
+  const latest = latestSnap.docs[0].data();
+  const createdAtISO = toISO(latest.createdAt);
+
+  // Reminders
+  const reminders =
+    remindersSnap?.docs
+      .map((d) => ({ id: d.id, ...(d.data() as any) }))
+      .filter((r: any) => !r.__deleted)
+      .map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        goalName: r.goalName ?? null,
+        cadence: r.cadence as 'monthly' | 'once',
+        nextRunAt: String(r.nextRunAt),
+      })) ?? [];
+
+  // after computing createdAtISO, allGoals, reminders...
+const achievements =
+  achievementsSnap?.docs.map((d) => {
+    const a = d.data() as any;
+    const toISO = (v: any) =>
+      typeof v?.toDate === 'function' ? v.toDate().toISOString() : (v ? new Date(v).toISOString() : null);
+    return {
+      id: d.id,
+      title: String(a.title ?? 'Achievement'),
+      icon: String(a.icon ?? 'Award'),
+      createdAt: toISO(a.createdAt),
+    };
+  }) ?? [];
 
   return {
     message: 'success',
-    plan: latestPlan.plan,
-    goals: latestPlan.goals,
-    keyMetrics: latestPlan.keyMetrics,
-    currency: latestPlan.currency,
-    createdAt: planDate.toISOString(),
+    plan: latest.plan ?? null,
+    goals: Array.isArray(latest.goals) ? latest.goals : null,
+    keyMetrics: latest.keyMetrics ?? null,
+    currency: latest.currency ?? 'ZAR',
+    createdAt: createdAtISO,
+    plansCount,
+    totalGoals,
+    allGoals,
+    reminders,
+    achievements,
   };
+
+  
 }
+
+
+/* ------------------------------- profile flows ----------------------------- */
 
 const profileSchema = z.object({
   netWorth: z.coerce.number().min(0, 'Net worth must be a positive number.'),
-  savingsRate: z.coerce.number().min(0, 'Savings rate must be a positive number.').max(100, 'Savings rate cannot exceed 100.'),
+  savingsRate: z.coerce
+    .number()
+    .min(0, 'Savings rate must be a positive number.')
+    .max(100, 'Savings rate cannot exceed 100.'),
   totalDebt: z.coerce.number().min(0, 'Total debt must be a positive number.'),
   monthlyNetSalary: z.coerce.number().min(1, 'Monthly salary must be a positive number.'),
 });
 
-type ProfileState = { message: string; errors?: z.ZodError<any>['formErrors'] | null };
-
-export async function saveProfile(prevState: ProfileState, formData: FormData): Promise<ProfileState> {
+export async function saveProfile(
+  _prev: ProfileState,
+  formData: FormData,
+): Promise<ProfileState> {
   const session = await getSession();
   if (!session?.uid) redirect('/');
+
+  const [{ adminDb }, { FieldValue }] = await Promise.all([
+    import('@/server/firebase-admin'),
+    import('firebase-admin/firestore'),
+  ]);
 
   const validated = profileSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!validated.success) return { message: 'Invalid data', errors: validated.error.flatten() };
 
   try {
-    const userDocRef = doc(db, 'users', session.uid);
-    await setDoc(userDocRef, { profile: validated.data }, { merge: true });
+    await adminDb.doc(`users/${session.uid}`).set(
+      {
+        profile: validated.data,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
     return { message: 'success' };
   } catch (error) {
     console.error('Failed to save profile: ', error);
@@ -239,48 +532,129 @@ export async function saveProfile(prevState: ProfileState, formData: FormData): 
 export async function getProfile() {
   const session = await getSession();
   if (!session?.uid) return null;
-  const userDocRef = doc(db, 'users', session.uid);
-  const userDoc = await getDoc(userDocRef);
-  const userData = userDoc.data();
-  return userData?.profile ?? null;
+
+  const { adminDb } = await import('@/server/firebase-admin');
+
+  const snap = await adminDb.doc(`users/${session.uid}`).get();
+  const data = snap.data();
+  return data?.profile ?? null;
 }
 
-export async function updateGoal(goalName: string, newAmount: number) {
+/* ------------------------------- goals updates ----------------------------- */
+
+// Update a goal inside a specific plan (falls back to latest if planId not given)
+export async function updateGoal(goalName: string, newAmount: number, planId?: string) {
   const session = await getSession();
   if (!session?.uid) redirect('/');
 
-  const plansRef = collection(db, 'users', session.uid, 'plans');
-  const q = query(plansRef, orderBy('createdAt', 'desc'), limit(1));
-  const querySnapshot = await getDocs(q);
+  const { adminDb } = await import('@/server/firebase-admin');
 
-  if (!querySnapshot.empty) {
-    const latestPlanDoc = querySnapshot.docs[0];
-    const latestPlanData = latestPlanDoc.data();
-    const updatedGoals = latestPlanData.goals.map((g: any) =>
-      g.name === goalName ? { ...g, currentAmount: newAmount } : g
-    );
-    await setDoc(latestPlanDoc.ref, { goals: updatedGoals }, { merge: true });
+  // Resolve plan doc
+  let ref: FirebaseFirestore.DocumentReference;
+  if (planId) {
+    ref = adminDb.doc(`users/${session.uid}/plans/${planId}`);
+  } else {
+    const snap = await adminDb
+      .collection('users').doc(session.uid).collection('plans')
+      .orderBy('createdAt', 'desc').limit(1).get();
+    if (snap.empty) return;
+    ref = snap.docs[0].ref;
   }
+
+  const docSnap = await ref.get();
+  const data = docSnap.data() as any;
+  const currentGoals: any[] = Array.isArray(data?.goals) ? data.goals : [];
+
+  const updatedGoals = currentGoals.map((g) =>
+    g?.name === goalName ? { ...g, currentAmount: Number(newAmount) } : g
+  );
+
+  await ref.set({ goals: updatedGoals }, { merge: true });
 }
 
-export async function deleteGoal(goalName: string) {
+// Delete a goal inside a specific plan (falls back to latest if planId not given)
+export async function deleteGoal(goalName: string, planId?: string) {
   const session = await getSession();
   if (!session?.uid) redirect('/');
 
-  const plansRef = collection(db, 'users', session.uid, 'plans');
-  const q = query(plansRef, orderBy('createdAt', 'desc'), limit(1));
-  const querySnapshot = await getDocs(q);
+  const { adminDb } = await import('@/server/firebase-admin');
 
-  if (!querySnapshot.empty) {
-    const latestPlanDoc = querySnapshot.docs[0];
-    const latestPlanData = latestPlanDoc.data();
-    const updatedGoals = latestPlanData.goals.filter((g: any) => g.name !== goalName);
-    await setDoc(latestPlanDoc.ref, { goals: updatedGoals }, { merge: true });
+  let ref: FirebaseFirestore.DocumentReference;
+  if (planId) {
+    ref = adminDb.doc(`users/${session.uid}/plans/${planId}`);
+  } else {
+    const snap = await adminDb
+      .collection('users').doc(session.uid).collection('plans')
+      .orderBy('createdAt', 'desc').limit(1).get();
+    if (snap.empty) return;
+    ref = snap.docs[0].ref;
   }
+
+  const docSnap = await ref.get();
+  const data = docSnap.data() as any;
+  const currentGoals: any[] = Array.isArray(data?.goals) ? data.goals : [];
+
+  const updatedGoals = currentGoals.filter((g) => g?.name !== goalName);
+  await ref.set({ goals: updatedGoals }, { merge: true });
 }
 
 
-// --- New Auth Actions ---
+// Goals Update
+
+// --- add these helpers (keep your existing ones for back-compat) ---
+async function updateGoalInPlan(planId: string, goalName: string, newAmount: number, uid: string) {
+  const { adminDb } = await import('@/server/firebase-admin');
+  const ref = adminDb.doc(`users/${uid}/plans/${planId}`);
+  const snap = await ref.get();
+  if (!snap.exists) return;
+
+  const data = snap.data() as any;
+  const goals = Array.isArray(data.goals) ? data.goals : [];
+  const updated = goals.map((g: any) => (g.name === goalName ? { ...g, currentAmount: newAmount } : g));
+  await ref.set({ goals: updated }, { merge: true });
+}
+
+async function deleteGoalInPlan(planId: string, goalName: string, uid: string) {
+  const { adminDb } = await import('@/server/firebase-admin');
+  const ref = adminDb.doc(`users/${uid}/plans/${planId}`);
+  const snap = await ref.get();
+  if (!snap.exists) return;
+
+  const data = snap.data() as any;
+  const goals = Array.isArray(data.goals) ? data.goals : [];
+  const updated = goals.filter((g: any) => g.name !== goalName);
+  await ref.set({ goals: updated }, { merge: true });
+}
+
+// --- update your exported actions to accept planId ---
+
+export async function updateGoalAction(formData: FormData) {
+  const goalName = String(formData.get('goalName') ?? '');
+  const newAmount = Number(formData.get('newAmount'));
+  const planId = formData.get('planId') ? String(formData.get('planId')) : undefined;
+
+  if (!goalName || Number.isNaN(newAmount)) {
+    return { ok: false, message: 'Missing goal name or amount.' };
+  }
+
+  await updateGoal(goalName, newAmount, planId);
+  revalidatePath('/dashboard');     // <-- refresh the page immediately
+  return { ok: true, message: 'Goal updated.' };
+}
+
+export async function deleteGoalAction(formData: FormData) {
+  const goalName = String(formData.get('goalName') ?? '');
+  const planId = formData.get('planId') ? String(formData.get('planId')) : undefined;
+
+  if (!goalName) return { ok: false, message: 'Missing goal name.' };
+
+  await deleteGoal(goalName, planId);
+  revalidatePath('/dashboard');     // <-- refresh the page immediately
+  return { ok: true, message: 'Goal deleted.' };
+}
+
+
+/* ---------------------------------- auth ----------------------------------- */
 
 export type AuthState = {
   status: 'idle' | 'error';
@@ -293,15 +667,10 @@ const loginSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters.'),
 });
 
-export async function login(prevState: AuthState, formData: FormData): Promise<AuthState> {
+export async function login(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const validated = loginSchema.safeParse(Object.fromEntries(formData));
-
   if (!validated.success) {
-    return {
-      status: 'error',
-      message: 'Invalid form data.',
-      errors: validated.error.flatten(),
-    };
+    return { status: 'error', message: 'Invalid form data.', errors: validated.error.flatten() };
   }
 
   const { email, password } = validated.data;
@@ -317,14 +686,14 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
         case 'auth/wrong-password':
           return { status: 'error', message: 'Invalid email or password.' };
         default:
-           console.error('Firebase login error:', error);
+          console.error('Firebase login error:', error);
           return { status: 'error', message: 'An unexpected error occurred.' };
       }
     }
     console.error('Generic login error:', error);
     return { status: 'error', message: 'An unexpected error occurred.' };
   }
-  
+
   redirect('/dashboard');
 }
 
@@ -334,40 +703,42 @@ const signupSchema = z.object({
   age: z.coerce.number().min(13, 'You must be at least 13 years old.').max(120, 'Please enter a valid age.'),
 });
 
-export async function signup(prevState: AuthState, formData: FormData): Promise<AuthState> {
+export async function signup(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const validated = signupSchema.safeParse(Object.fromEntries(formData));
-
   if (!validated.success) {
-    return {
-      status: 'error',
-      message: 'Invalid form data.',
-      errors: validated.error.flatten(),
-    };
+    return { status: 'error', message: 'Invalid form data.', errors: validated.error.flatten() };
   }
 
   const { email, password, age } = validated.data;
 
+  const [{ adminDb }, { FieldValue }] = await Promise.all([
+    import('@/server/firebase-admin'),
+    import('firebase-admin/firestore'),
+  ]);
+
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     const uid = cred.user.uid;
-    
-    await setDoc(doc(db, 'users', uid), {
-      email,
-      age,
-      userType: 'user',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
+
+    await adminDb.doc(`users/${uid}`).set(
+      {
+        email,
+        age,
+        userType: 'user',
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
 
     await createSession(uid);
-
   } catch (error) {
-     if (error instanceof FirebaseError) {
-        console.error('Firebase signup error:', {
-          code: error.code,
-          message: error.message,
-          stack: error.stack,
-        });
+    if (error instanceof FirebaseError) {
+      console.error('Firebase signup error:', {
+        code: error.code,
+        message: error.message,
+        stack: error.stack,
+      });
       switch (error.code) {
         case 'auth/email-already-in-use':
           return { status: 'error', message: 'This email is already in use.' };
@@ -378,6 +749,6 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
     console.error('Generic signup error:', error);
     return { status: 'error', message: 'An unexpected error occurred.' };
   }
-  
+
   redirect('/dashboard');
 }
