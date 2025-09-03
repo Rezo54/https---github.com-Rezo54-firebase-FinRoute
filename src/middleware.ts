@@ -2,6 +2,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSession } from '@/edge/session';
 
+const COOKIE = 'finroute_session';
+const key = new TextEncoder().encode(process.env.SESSION_SECRET ?? 'dev-only-fallback');
 
 export async function middleware(request: NextRequest) {
   const session = await getSession();
