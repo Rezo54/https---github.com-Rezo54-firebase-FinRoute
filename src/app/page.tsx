@@ -1,3 +1,7 @@
+// app/(auth)/page.tsx  (or wherever you render <AuthForm/>)
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { AuthForm } from "@/components/auth/auth-form";
 import { Suspense } from "react";
 
