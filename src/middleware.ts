@@ -9,6 +9,16 @@ export async function middleware(request: NextRequest) {
   const session = await getSession();
   const { pathname } = request.nextUrl;
 
+  //Temp Cookie
+  const token = req.cookies.get(COOKIE)?.value;
+  if (!token) {
+    console.log('[MW] No session cookie on path:', req.nextUrl.pathname);
+    // redirect code…
+  } else {
+    console.log('[MW] Cookie present on path:', req.nextUrl.pathname);
+    // proceed…
+  }
+
   // If there's no valid session and the user is trying to access a protected route,
   // redirect them to the login page.
   if (!session && pathname.startsWith('/dashboard')) {
