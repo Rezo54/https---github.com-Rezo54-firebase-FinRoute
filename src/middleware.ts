@@ -1,37 +1,27 @@
-// middleware.ts
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
 
-const COOKIE = 'finroute_session';
+import { NextResponse, type NextRequest } from 'next/server';
+import { getSession } from '@/edge/session';
 
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
 
-  // always allow public & API
-  if (
-    pathname.startsWith('/api/') ||
-    pathname === '/' ||
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon') ||
-    pathname.startsWith('/assets') ||
-    pathname.startsWith('/images')
-  ) {
-    return NextResponse.next();
+export async function middleware(request: NextRequest) {
+  const session = await getSession();
+  const { pathname } = request.nextUrl;
+
+  // If there's no valid session and the user is trying to access a protected route,
+  // redirect them to the login page.
+  if (!session && pathname.startsWith('/dashboard')) {
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
-  // protect /dashboard/*
-  if (pathname.startsWith('/dashboard')) {
-    const has = req.cookies.get(COOKIE)?.value;
-    if (!has) {
-      const url = new URL('/', req.url);
-      url.searchParams.set('mode', 'login');
-      return NextResponse.redirect(url);
-    }
+  // If there is a valid session and the user is on the login page,
+  // redirect them to the dashboard.
+  if (session && pathname === '/') {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/((?!_next|favicon.ico).*)'],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };
