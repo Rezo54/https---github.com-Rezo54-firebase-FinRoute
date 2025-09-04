@@ -1,3 +1,4 @@
+// src/components/auth/auth-form.tsx
 'use client';
 
 import { useSearchParams } from 'next/navigation';
@@ -5,28 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2 } from 'lucide-react';
-import { AuthFormSwitcher } from './auth-form-switcher';
-import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
-import { useState } from 'react';
-
-function SubmitButton({ isSignUp, pending }: { isSignUp: boolean; pending: boolean }) {
-  return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-      {isSignUp ? 'Create Account' : 'Sign In'}
-    </Button>
-  );
-}
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export function AuthForm() {
-  const searchParams = useSearchParams();
-  const mode = searchParams.get('mode') || 'login';
+  const sp = useSearchParams();
+  const mode = sp.get('mode') || 'login';
   const isSignUp = mode === 'signup';
-  const error = searchParams.get('error');
+  const error = sp.get('error');
 
-  // simple pending UX (native forms don't expose pending)
-  const [pending, setPending] = useState(false);
+  // IMPORTANT: classic form POST straight to API route
+  const actionHref = isSignUp ? '/api/auth/signup' : '/api/auth/login';
 
   return (
     <Card className="w-full max-w-sm bg-card border-border">
@@ -39,12 +28,14 @@ export function AuthForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form
-          action={isSignUp ? '/api/auth/signup' : '/api/auth/login'}
-          method="post"
-          className="space-y-4"
-          onSubmit={() => setPending(true)}
-        >
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTitle>Authentication Failed</AlertTitle>
+            <AlertDescription>{decodeURIComponent(error)}</AlertDescription>
+          </Alert>
+        )}
+
+        <form action={actionHref} method="post" className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" name="email" type="email" placeholder="you@example.com" required />
@@ -62,18 +53,14 @@ export function AuthForm() {
             <Input id="password" name="password" type="password" required />
           </div>
 
-          {error && (
-            <Alert variant="destructive">
-              <AlertTitle>Authentication Failed</AlertTitle>
-              <AlertDescription>{decodeURIComponent(error)}</AlertDescription>
-            </Alert>
-          )}
-
-          <SubmitButton isSignUp={isSignUp} pending={pending} />
+          <Button type="submit" className="w-full">
+            {isSignUp ? 'Create Account' : 'Sign In'}
+          </Button>
         </form>
 
+        {/* keep your switcher */}
         <div className="mt-4 flex flex-col gap-4">
-          <AuthFormSwitcher isSignUp={isSignUp} />
+          {/* <AuthFormSwitcher isSignUp={isSignUp} /> */}
         </div>
       </CardContent>
     </Card>
