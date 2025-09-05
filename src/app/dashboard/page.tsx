@@ -6,9 +6,7 @@ import { getSession } from '@/server/session';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function DashboardPage() {
-  const session = await getSession();
-  if (!session?.uid) redirect('/?mode=login');
+
   
 import { format } from 'date-fns';
 import {
@@ -88,8 +86,9 @@ function AchievementIcon({ name }: { name: string }) {
   }
 }
 
-export default async function DashboardPage() {
-  const dashboard: DashboardState = await getDashboardState();
+  export default async function DashboardPage() {
+  const session = await getSession();
+  if (!session?.uid) redirect('/?mode=login');
 
   const sym = currencySymbol(dashboard.currency);
   const createdAt = dashboard.createdAt ? format(new Date(dashboard.createdAt), 'PPP p') : '—';
