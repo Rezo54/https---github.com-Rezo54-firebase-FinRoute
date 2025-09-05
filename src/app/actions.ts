@@ -582,4 +582,10 @@ export async function createUserDoc(uid: string, email: string, age: number) {
       age,
       userType: 'user',
       createdAt: FieldValue.serverTimestamp(),
-      upd
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  return { ok: true };
+}
