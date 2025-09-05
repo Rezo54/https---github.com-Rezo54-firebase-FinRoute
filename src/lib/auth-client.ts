@@ -1,13 +1,26 @@
 // src/lib/auth-client.ts
-import { GoogleAuthProvider, signInWithPopup, signOut, type UserCredential } from 'firebase/auth';
-import { auth } from './firebase';
+'use client';
 
-const provider = new GoogleAuthProvider();
+import { auth } from '@/lib/firebase';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup,
+} from 'firebase/auth';
 
-export async function googleLogin(): Promise<UserCredential> {
-  return await signInWithPopup(auth, provider);
+export async function emailLogin(email: string, password: string) {
+  const cred = await signInWithEmailAndPassword(auth, email, password);
+  return cred.user;
 }
 
-export async function logoutClient() {
-  return await signOut(auth);
+export async function emailSignup(email: string, password: string) {
+  const cred = await createUserWithEmailAndPassword(auth, email, password);
+  return cred.user;
+}
+
+const provider = new GoogleAuthProvider();
+export async function googlePopup() {
+  const cred = await signInWithPopup(auth, provider);
+  return cred.user;
 }
