@@ -12,7 +12,7 @@ export default function Page() {
         pb-[env(safe-area-inset-bottom)]
       "
     >
-      <div className="w-full max-w-md mx-auto">
+      <div className="w-full max-w-md">
         <Suspense fallback={null}>
           <AuthForm />
         </Suspense>
