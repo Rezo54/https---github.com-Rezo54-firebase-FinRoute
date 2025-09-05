@@ -1,13 +1,4 @@
 // app/dashboard/page.tsx (Server Component)
-
-import { redirect } from 'next/navigation';
-import { getSession } from '@/server/session';
-
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-
-  
 import { format } from 'date-fns';
 import {
   getDashboardState,
@@ -86,9 +77,8 @@ function AchievementIcon({ name }: { name: string }) {
   }
 }
 
-  export default async function DashboardPage() {
-  const session = await getSession();
-  if (!session?.uid) redirect('/?mode=login');
+export default async function DashboardPage() {
+  const dashboard: DashboardState = await getDashboardState();
 
   const sym = currencySymbol(dashboard.currency);
   const createdAt = dashboard.createdAt ? format(new Date(dashboard.createdAt), 'PPP p') : '—';
