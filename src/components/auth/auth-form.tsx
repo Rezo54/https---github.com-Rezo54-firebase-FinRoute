@@ -1,9 +1,9 @@
 'use client';
 
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useCallback, useState, useEffect } from 'react';
 
-import { startSession, createUserDoc } from '@/app/actions';
+import { startSessionAndRedirect, createUserDoc } from '@/app/actions';
 import { emailLogin, emailSignup /*, googlePopup*/ } from '@/lib/auth-client';
 import { log, logError } from '@/lib/log';
 
@@ -19,7 +19,6 @@ type LocalState = { status: 'idle' | 'error' | 'success'; message: string };
 
 export function AuthForm() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const mode = searchParams.get('mode') || 'login';
   const isSignUp = mode === 'signup';
 
@@ -58,19 +57,19 @@ export function AuthForm() {
         await createUserDoc(user.uid, email, age);
         log('auth.server.userdoc.created', { uid: user.uid });
 
-        await startSession(user.uid);
-        log('auth.server.session.created', { uid: user.uid });
+        // 🔁 Server sets cookie and issues a 303 → /dashboard
+        log('auth.server.redirect', { to: '/dashboard' });
+        await startSessionAndRedirect(user.uid, '/dashboard');
+        return; // redirect will navigate; code below won't run
       } else {
         const user = await emailLogin(email, password);
         log('auth.firebase.login.success', { uid: user.uid });
 
-        await startSession(user.uid);
-        log('auth.server.session.created', { uid: user.uid });
+        // 🔁 Server sets cookie and issues a 303 → /dashboard
+        log('auth.server.redirect', { to: '/dashboard' });
+        await startSessionAndRedirect(user.uid, '/dashboard');
+        return; // redirect will navigate; code below won't run
       }
-
-      setState({ status: 'success', message: 'Success' });
-      log('auth.navigate', { to: '/dashboard' });
-      router.push('/dashboard');
     } catch (err: any) {
       logError('auth.error', err, { mode });
 
@@ -89,7 +88,7 @@ export function AuthForm() {
     } finally {
       setPending(false);
     }
-  }, [isSignUp, router, mode]);
+  }, [isSignUp, mode]);
 
   return (
     <Card className="w-full max-w-sm bg-card border-border">
