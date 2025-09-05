@@ -31,17 +31,14 @@ async function createReminderProxy(formData: FormData) {
   'use server';
   await createReminderAction(formData);
 }
-
 async function deleteReminderProxy(formData: FormData) {
   'use server';
   await deleteReminderAction(formData);
 }
-
 async function updateGoalProxy(formData: FormData) {
   'use server';
   await updateGoalAction(formData);
 }
-
 async function deleteGoalProxy(formData: FormData) {
   'use server';
   await deleteGoalAction(formData);
@@ -163,7 +160,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Reminders</CardTitle>
-          <CardDescription>Create a monthly or one-off reminder</CardDescription>
+            <CardDescription>Create a monthly or one-off reminder</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <form action={createReminderProxy} className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -301,7 +298,7 @@ export default async function DashboardPage() {
                 return (
                   <li
                     key={`${g.planId}-${g.name}-${idx}`}
-                    className="rounded-lg border p-4 space-y-3"
+                    className="rounded-lg border p-4 space-y-3 overflow-hidden"
                   >
                     <div className="flex items-center justify-between">
                       <div className="font-medium">{g.name}</div>
@@ -334,9 +331,13 @@ export default async function DashboardPage() {
                     </div>
                     <div className="text-xs text-muted-foreground">{pct}%</div>
 
-                    <div className="flex items-center gap-2">
+                    {/* ✅ Wrap-friendly actions so Delete never spills on mobile */}
+                    <div className="flex flex-wrap items-center gap-2">
                       {/* UPDATE: include planId so the correct plan is edited */}
-                      <form action={updateGoalProxy} className="flex items-center gap-2">
+                      <form
+                        action={updateGoalProxy}
+                        className="flex w-full sm:w-auto flex-1 min-w-0 items-center gap-2"
+                      >
                         <input type="hidden" name="goalName" value={g.name} />
                         <input type="hidden" name="planId" value={g.planId} />
 
@@ -350,17 +351,21 @@ export default async function DashboardPage() {
                           placeholder={`Enter new saved amount (current ${fmtCurrency(g.currentAmount, dashboard.currency)})`}
                           title={`Current saved: ${fmtCurrency(g.currentAmount, dashboard.currency)}`}
                           aria-label={`New saved amount for ${g.name}`}
-                          className="w-56"
+                          className="flex-1 min-w-0 w-full sm:w-56"
                         />
 
-                        <Button type="submit" variant="secondary">Update</Button>
+                        <Button type="submit" variant="secondary" className="shrink-0">
+                          Update
+                        </Button>
                       </form>
 
                       {/* DELETE: include planId too */}
-                      <form action={deleteGoalProxy}>
+                      <form action={deleteGoalProxy} className="w-full sm:w-auto">
                         <input type="hidden" name="goalName" value={g.name} />
                         <input type="hidden" name="planId" value={g.planId} />
-                        <Button type="submit" variant="outline">Delete</Button>
+                        <Button type="submit" variant="outline" className="w-full sm:w-auto">
+                          Delete
+                        </Button>
                       </form>
                     </div>
                   </li>
