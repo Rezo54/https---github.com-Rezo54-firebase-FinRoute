@@ -1,11 +1,11 @@
-// src/components/auth/auth-form.tsx
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 
 import { startSession, createUserDoc } from '@/app/actions';
-import { emailLogin, emailSignup } from '@/lib/auth-client';
+import { emailLogin, emailSignup /*, googlePopup*/ } from '@/lib/auth-client';
+import { log, logError } from '@/lib/log';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +26,11 @@ export function AuthForm() {
   const [pending, setPending] = useState(false);
   const [state, setState] = useState<LocalState>({ status: 'idle', message: '' });
 
+  // One-time boot logs (helps confirm envs + UA in prod)
+  useEffect(() => {
+    log('auth.form.mounted', { mode, ua: typeof navigator !== 'undefined' ? navigator.userAgent : 'ssr' });
+  }, [mode]);
+
   const onSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setPending(true);
@@ -37,23 +42,38 @@ export function AuthForm() {
     const ageRaw = fd.get('age');
     const age = ageRaw ? Number(ageRaw) : undefined;
 
+    log('auth.submit', { mode, email });
+
     try {
       if (isSignUp) {
         if (!age || Number.isNaN(age)) {
           setState({ status: 'error', message: 'Please enter a valid age.' });
+          log('auth.client.validation.error', { reason: 'age invalid' }, 'warn');
           setPending(false);
           return;
         }
         const user = await emailSignup(email, password);
+        log('auth.firebase.signup.success', { uid: user.uid });
+
         await createUserDoc(user.uid, email, age);
+        log('auth.server.userdoc.created', { uid: user.uid });
+
         await startSession(user.uid);
+        log('auth.server.session.created', { uid: user.uid });
       } else {
         const user = await emailLogin(email, password);
+        log('auth.firebase.login.success', { uid: user.uid });
+
         await startSession(user.uid);
+        log('auth.server.session.created', { uid: user.uid });
       }
+
       setState({ status: 'success', message: 'Success' });
+      log('auth.navigate', { to: '/dashboard' });
       router.push('/dashboard');
     } catch (err: any) {
+      logError('auth.error', err, { mode });
+
       const code = err?.code || '';
       if (['auth/invalid-credential', 'auth/user-not-found', 'auth/wrong-password'].includes(code)) {
         setState({ status: 'error', message: 'Invalid email or password.' });
@@ -62,15 +82,14 @@ export function AuthForm() {
       } else if (code === 'auth/invalid-api-key') {
         setState({ status: 'error', message: 'Invalid Firebase API key (check Netlify envs).' });
       } else if (code === 'auth/unauthorized-domain') {
-        setState({ status: 'error', message: 'Unauthorized domain (add Netlify domain in Firebase).' });
+        setState({ status: 'error', message: 'Unauthorized domain (add your Netlify domain in Firebase Auth settings).' });
       } else {
-        console.error('Auth error:', err);
         setState({ status: 'error', message: 'An unexpected error occurred.' });
       }
     } finally {
       setPending(false);
     }
-  }, [isSignUp, router]);
+  }, [isSignUp, router, mode]);
 
   return (
     <Card className="w-full max-w-sm bg-card border-border">
