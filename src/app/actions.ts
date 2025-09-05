@@ -5,29 +5,18 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
 import { createSession, deleteSession, getSession } from '@/server/session';
-
-// Web Auth SDK is fine to use in server actions for email/password flows
-import { auth } from '@/lib/firebase';
-import { FirebaseError } from 'firebase/app';
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-} from 'firebase/auth';
-
 import type { FinancialPlanInput } from '@/ai/flows/financial-plan-generator';
 import { financialPlanGenerator } from '@/ai/flows/financial-plan-generator';
-
 import { revalidatePath } from 'next/cache';
 
-
-// --- Reminders (users/{uid}/reminders) ---
+/* ------------------------------- Reminders ------------------------------- */
 
 type ReminderDoc = {
   title: string;
   goalName?: string | null;
   cadence: 'monthly' | 'once';
-  nextRunAt: string;   // ISO string for ordering
-  createdAt: any;      // serverTimestamp()
+  nextRunAt: string; // ISO
+  createdAt: any; // serverTimestamp()
 };
 
 export async function createReminderAction(formData: FormData) {
@@ -45,7 +34,6 @@ export async function createReminderAction(formData: FormData) {
 
   let nextRunAtISO: string;
   if (cadence === 'monthly') {
-    // last day of THIS month at 09:00 UTC
     const now = new Date();
     const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 9, 0, 0));
     nextRunAtISO = next.toISOString();
@@ -71,8 +59,8 @@ export async function createReminderAction(formData: FormData) {
       nextRunAt: nextRunAtISO,
       createdAt: FieldValue.serverTimestamp(),
     } as ReminderDoc);
-    revalidatePath('/dashboard');            // ✅ force dashboard to refresh
 
+  revalidatePath('/dashboard');
   return { ok: true, message: 'Reminder saved.' };
 }
 
@@ -85,11 +73,12 @@ export async function deleteReminderAction(formData: FormData) {
   const id = String(formData.get('id') || '');
   if (!id) return { ok: false, message: 'Missing reminder id.' };
 
-  // Soft-delete to keep it simple
   await adminDb.doc(`users/${session.uid}/reminders/${id}`).set({ __deleted: true }, { merge: true });
-  revalidatePath('/dashboard');            // ✅
+  revalidatePath('/dashboard');
   return { ok: true, message: 'Reminder deleted.' };
 }
+
+/* ------------------------- Dashboard types & helpers ------------------------ */
 
 export type DashboardState = {
   message: string;
@@ -117,12 +106,10 @@ export type DashboardState = {
   achievements?: {
     id: string;
     title: string;
-    icon: string;         // e.g. "Award", "CalendarCheck"
+    icon: string;
     createdAt: string | null;
   }[];
 };
-
-
 
 /* ---------------------------------- utils ---------------------------------- */
 
@@ -145,10 +132,7 @@ const goalSchema = z
 
 const formSchema = z.object({
   netWorth: z.coerce.number().min(0, 'Net worth must be a positive number.'),
-  savingsRate: z.coerce
-    .number()
-    .min(0, 'Savings rate must be a positive number.')
-    .max(100, 'Savings rate cannot exceed 100.'),
+  savingsRate: z.coerce.number().min(0, 'Savings rate must be a positive number.').max(100, 'Savings rate cannot exceed 100.'),
   totalDebt: z.coerce.number().min(0, 'Total debt must be a positive number.'),
   monthlyNetSalary: z.coerce.number().min(1, 'Monthly salary must be a positive number.'),
   goals: z.array(goalSchema).min(1, 'Please add at least one financial goal.'),
@@ -216,21 +200,18 @@ export async function generatePlan(
   const session = await getSession();
   if (!session?.uid) redirect('/');
 
-  // Lazy-load Admin pieces here to avoid bundling in client/edge
   const [{ adminDb }, { FieldValue }] = await Promise.all([
     import('@/server/firebase-admin'),
     import('firebase-admin/firestore'),
   ]);
 
   try {
-    // guard: don’t call Genkit without a key
     const hasGenkitKey = !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
     if (!hasGenkitKey) {
       console.error('[generatePlan] Missing GEMINI_API_KEY/GOOGLE_API_KEY');
       return { message: 'AI is not configured on this server.', errors: null, plan: null };
     }
 
-    // Gather and normalize the form data
     const raw: Record<string, any> = {};
     const goalsById: Record<string, any> = {};
     for (const [k, v] of formData.entries()) {
@@ -259,26 +240,16 @@ export async function generatePlan(
       isFirstPlan,
     } = validated.data;
 
-    // Read user profile
     const userSnap = await adminDb.doc(`users/${session.uid}`).get();
     const userData = userSnap.data();
     if (!userData) return { message: 'User profile not found.', errors: null, plan: null };
 
-    const debtToIncome =
-      monthlyNetSalary > 0 ? Math.round((totalDebt / monthlyNetSalary) * 100) : 0;
+    const debtToIncome = monthlyNetSalary > 0 ? Math.round((totalDebt / monthlyNetSalary) * 100) : 0;
     const age = userData.age;
 
     const currencySymbols: Record<string, string> = {
-      USD: '$',
-      EUR: '€',
-      JPY: '¥',
-      GBP: '£',
-      NGN: '₦',
-      ZAR: 'R',
-      KES: 'KSh',
-      CNY: '¥',
-      INR: '₹',
-      SGD: 'S$',
+      USD: '$', EUR: '€', JPY: '¥', GBP: '£', NGN: '₦', ZAR: 'R', KES: 'KSh',
+      CNY: '¥', INR: '₹', SGD: 'S$',
     };
 
     const input: FinancialPlanInput = {
@@ -290,14 +261,9 @@ export async function generatePlan(
 
     const result = await financialPlanGenerator(input);
     if (!result.plan) {
-      return {
-        message: 'The AI could not generate a plan from the data provided.',
-        errors: null,
-        plan: null,
-      };
+      return { message: 'The AI could not generate a plan from the data provided.', errors: null, plan: null };
     }
 
-    // check if any plan exists (for achievement type)
     const existing = await adminDb
       .collection('users')
       .doc(session.uid)
@@ -306,10 +272,8 @@ export async function generatePlan(
       .get();
     const hasAnyPlan = !existing.empty;
 
-    // title = first goal (AI result preferred), then form goal, else fallback
     const title = result.goals?.[0]?.name || goals?.[0]?.name || 'Plan';
 
-    // append new plan with server timestamp
     await adminDb.collection('users').doc(session.uid).collection('plans').add({
       title,
       plan: result.plan,
@@ -319,7 +283,6 @@ export async function generatePlan(
       createdAt: FieldValue.serverTimestamp(),
     });
 
-    // achievement
     const achievement = hasAnyPlan
       ? { title: 'Planner', icon: 'CalendarCheck' }
       : { title: 'First Planner', icon: 'Award' };
@@ -352,10 +315,7 @@ export async function generatePlan(
 
 const savePlanSchema = z.object({ planId: z.string() });
 
-export async function savePlan(
-  _prev: SavePlanState,
-  formData: FormData,
-): Promise<SavePlanState> {
+export async function savePlan(_prev: { message: string; errors?: any }, formData: FormData) {
   const session = await getSession();
   if (!session?.uid) redirect('/');
 
@@ -383,22 +343,24 @@ export async function getDashboardState(): Promise<DashboardState> {
   const { adminDb } = await import('@/server/firebase-admin');
   const plansCol = adminDb.collection('users').doc(session.uid).collection('plans');
 
-    const [latestSnap, allSnap, remindersSnap, achievementsSnap] = await Promise.all([
+  const [latestSnap, allSnap, remindersSnap, achievementsSnap] = await Promise.all([
     plansCol.orderBy('createdAt', 'desc').limit(1).get(),
     plansCol.orderBy('createdAt', 'desc').get(),
     adminDb
-    .collection('users')
-    .doc(session.uid)
-    .collection('reminders')
-    .orderBy('nextRunAt', 'asc')
-    .get().catch(() => null),
-    adminDb.collection('users')
-    .doc(session.uid)
-    .collection('achievements')
-    .orderBy('createdAt', 'desc')
-    .get()
-    .catch(() => null),
-    ]);
+      .collection('users')
+      .doc(session.uid)
+      .collection('reminders')
+      .orderBy('nextRunAt', 'asc')
+      .get()
+      .catch(() => null),
+    adminDb
+      .collection('users')
+      .doc(session.uid)
+      .collection('achievements')
+      .orderBy('createdAt', 'desc')
+      .get()
+      .catch(() => null),
+  ]);
 
   const toISO = (v: any) =>
     typeof v?.toDate === 'function' ? v.toDate().toISOString() : (v ? new Date(v).toISOString() : null);
@@ -418,7 +380,6 @@ export async function getDashboardState(): Promise<DashboardState> {
     };
   }
 
-  // Aggregate ALL goals
   const plansCount = allSnap.size;
   const allGoals: DashboardState['allGoals'] = [];
   allSnap.forEach((doc) => {
@@ -437,12 +398,9 @@ export async function getDashboardState(): Promise<DashboardState> {
   });
 
   const totalGoals = allGoals.length;
-
-  // Latest plan
   const latest = latestSnap.docs[0].data();
   const createdAtISO = toISO(latest.createdAt);
 
-  // Reminders
   const reminders =
     remindersSnap?.docs
       .map((d) => ({ id: d.id, ...(d.data() as any) }))
@@ -455,19 +413,18 @@ export async function getDashboardState(): Promise<DashboardState> {
         nextRunAt: String(r.nextRunAt),
       })) ?? [];
 
-  // after computing createdAtISO, allGoals, reminders...
-const achievements =
-  achievementsSnap?.docs.map((d) => {
-    const a = d.data() as any;
-    const toISO = (v: any) =>
-      typeof v?.toDate === 'function' ? v.toDate().toISOString() : (v ? new Date(v).toISOString() : null);
-    return {
-      id: d.id,
-      title: String(a.title ?? 'Achievement'),
-      icon: String(a.icon ?? 'Award'),
-      createdAt: toISO(a.createdAt),
-    };
-  }) ?? [];
+  const achievements =
+    achievementsSnap?.docs.map((d) => {
+      const a = d.data() as any;
+      const toISO = (v: any) =>
+        typeof v?.toDate === 'function' ? v.toDate().toISOString() : (v ? new Date(v).toISOString() : null);
+      return {
+        id: d.id,
+        title: String(a.title ?? 'Achievement'),
+        icon: String(a.icon ?? 'Award'),
+        createdAt: toISO(a.createdAt),
+      };
+    }) ?? [];
 
   return {
     message: 'success',
@@ -482,27 +439,18 @@ const achievements =
     reminders,
     achievements,
   };
-
-  
 }
-
 
 /* ------------------------------- profile flows ----------------------------- */
 
 const profileSchema = z.object({
   netWorth: z.coerce.number().min(0, 'Net worth must be a positive number.'),
-  savingsRate: z.coerce
-    .number()
-    .min(0, 'Savings rate must be a positive number.')
-    .max(100, 'Savings rate cannot exceed 100.'),
+  savingsRate: z.coerce.number().min(0, 'Savings rate must be a positive number.').max(100, 'Savings rate cannot exceed 100.'),
   totalDebt: z.coerce.number().min(0, 'Total debt must be a positive number.'),
   monthlyNetSalary: z.coerce.number().min(1, 'Monthly salary must be a positive number.'),
 });
 
-export async function saveProfile(
-  _prev: ProfileState,
-  formData: FormData,
-): Promise<ProfileState> {
+export async function saveProfile(_prev: ProfileState, formData: FormData): Promise<ProfileState> {
   const session = await getSession();
   if (!session?.uid) redirect('/');
 
@@ -518,7 +466,7 @@ export async function saveProfile(
     await adminDb.doc(`users/${session.uid}`).set(
       {
         profile: validated.data,
-        updatedAt: FieldValue.serverTimestamp(),
+        updatedAt: (await import('firebase-admin/firestore')).FieldValue.serverTimestamp(),
       },
       { merge: true },
     );
@@ -534,7 +482,6 @@ export async function getProfile() {
   if (!session?.uid) return null;
 
   const { adminDb } = await import('@/server/firebase-admin');
-
   const snap = await adminDb.doc(`users/${session.uid}`).get();
   const data = snap.data();
   return data?.profile ?? null;
@@ -542,14 +489,12 @@ export async function getProfile() {
 
 /* ------------------------------- goals updates ----------------------------- */
 
-// Update a goal inside a specific plan (falls back to latest if planId not given)
 export async function updateGoal(goalName: string, newAmount: number, planId?: string) {
   const session = await getSession();
   if (!session?.uid) redirect('/');
 
   const { adminDb } = await import('@/server/firebase-admin');
 
-  // Resolve plan doc
   let ref: FirebaseFirestore.DocumentReference;
   if (planId) {
     ref = adminDb.doc(`users/${session.uid}/plans/${planId}`);
@@ -572,7 +517,6 @@ export async function updateGoal(goalName: string, newAmount: number, planId?: s
   await ref.set({ goals: updatedGoals }, { merge: true });
 }
 
-// Delete a goal inside a specific plan (falls back to latest if planId not given)
 export async function deleteGoal(goalName: string, planId?: string) {
   const session = await getSession();
   if (!session?.uid) redirect('/');
@@ -598,36 +542,6 @@ export async function deleteGoal(goalName: string, planId?: string) {
   await ref.set({ goals: updatedGoals }, { merge: true });
 }
 
-
-// Goals Update
-
-// --- add these helpers (keep your existing ones for back-compat) ---
-async function updateGoalInPlan(planId: string, goalName: string, newAmount: number, uid: string) {
-  const { adminDb } = await import('@/server/firebase-admin');
-  const ref = adminDb.doc(`users/${uid}/plans/${planId}`);
-  const snap = await ref.get();
-  if (!snap.exists) return;
-
-  const data = snap.data() as any;
-  const goals = Array.isArray(data.goals) ? data.goals : [];
-  const updated = goals.map((g: any) => (g.name === goalName ? { ...g, currentAmount: newAmount } : g));
-  await ref.set({ goals: updated }, { merge: true });
-}
-
-async function deleteGoalInPlan(planId: string, goalName: string, uid: string) {
-  const { adminDb } = await import('@/server/firebase-admin');
-  const ref = adminDb.doc(`users/${uid}/plans/${planId}`);
-  const snap = await ref.get();
-  if (!snap.exists) return;
-
-  const data = snap.data() as any;
-  const goals = Array.isArray(data.goals) ? data.goals : [];
-  const updated = goals.filter((g: any) => g.name !== goalName);
-  await ref.set({ goals: updated }, { merge: true });
-}
-
-// --- update your exported actions to accept planId ---
-
 export async function updateGoalAction(formData: FormData) {
   const goalName = String(formData.get('goalName') ?? '');
   const newAmount = Number(formData.get('newAmount'));
@@ -635,10 +549,10 @@ export async function updateGoalAction(formData: FormData) {
 
   if (!goalName || Number.isNaN(newAmount)) {
     return { ok: false, message: 'Missing goal name or amount.' };
-  }
+    }
 
   await updateGoal(goalName, newAmount, planId);
-  revalidatePath('/dashboard');     // <-- refresh the page immediately
+  revalidatePath('/dashboard');
   return { ok: true, message: 'Goal updated.' };
 }
 
@@ -649,106 +563,23 @@ export async function deleteGoalAction(formData: FormData) {
   if (!goalName) return { ok: false, message: 'Missing goal name.' };
 
   await deleteGoal(goalName, planId);
-  revalidatePath('/dashboard');     // <-- refresh the page immediately
+  revalidatePath('/dashboard');
   return { ok: true, message: 'Goal deleted.' };
 }
 
+/* --------------------------- client-signup helper --------------------------- */
 
-/* ---------------------------------- auth ----------------------------------- */
-
-export type AuthState = {
-  status: 'idle' | 'error';
-  message: string;
-  errors?: z.ZodError<any>['formErrors'] | null;
-};
-
-const loginSchema = z.object({
-  email: z.string().email('Invalid email address.'),
-  password: z.string().min(6, 'Password must be at least 6 characters.'),
-});
-
-export async function login(_prev: AuthState, formData: FormData): Promise<AuthState> {
-  const validated = loginSchema.safeParse(Object.fromEntries(formData));
-  if (!validated.success) {
-    return { status: 'error', message: 'Invalid form data.', errors: validated.error.flatten() };
-  }
-
-  const { email, password } = validated.data;
-
-  try {
-    const cred = await signInWithEmailAndPassword(auth, email, password);
-    await createSession(cred.user.uid);
-  } catch (error) {
-    if (error instanceof FirebaseError) {
-      switch (error.code) {
-        case 'auth/invalid-credential':
-        case 'auth/user-not-found':
-        case 'auth/wrong-password':
-          return { status: 'error', message: 'Invalid email or password.' };
-        default:
-          console.error('Firebase login error:', error);
-          return { status: 'error', message: 'An unexpected error occurred.' };
-      }
-    }
-    console.error('Generic login error:', error);
-    return { status: 'error', message: 'An unexpected error occurred.' };
-  }
-
-  redirect('/dashboard');
-}
-
-const signupSchema = z.object({
-  email: z.string().email('Invalid email address.'),
-  password: z.string().min(6, 'Password must be at least 6 characters.'),
-  age: z.coerce.number().min(13, 'You must be at least 13 years old.').max(120, 'Please enter a valid age.'),
-});
-
-export async function signup(_prev: AuthState, formData: FormData): Promise<AuthState> {
-  const validated = signupSchema.safeParse(Object.fromEntries(formData));
-  if (!validated.success) {
-    return { status: 'error', message: 'Invalid form data.', errors: validated.error.flatten() };
-  }
-
-  const { email, password, age } = validated.data;
-
+// Called by the client immediately after createUserWithEmailAndPassword
+export async function createUserDoc(uid: string, email: string, age: number) {
   const [{ adminDb }, { FieldValue }] = await Promise.all([
     import('@/server/firebase-admin'),
     import('firebase-admin/firestore'),
   ]);
 
-  try {
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    const uid = cred.user.uid;
-
-    await adminDb.doc(`users/${uid}`).set(
-      {
-        email,
-        age,
-        userType: 'user',
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    );
-
-    await createSession(uid);
-  } catch (error) {
-    if (error instanceof FirebaseError) {
-      console.error('Firebase signup error:', {
-        code: error.code,
-        message: error.message,
-        stack: error.stack,
-      });
-      switch (error.code) {
-        case 'auth/email-already-in-use':
-          return { status: 'error', message: 'This email is already in use.' };
-        default:
-          return { status: 'error', message: 'An unexpected error occurred during signup.' };
-      }
-    }
-    console.error('Generic signup error:', error);
-    return { status: 'error', message: 'An unexpected error occurred.' };
-  }
-
-  redirect('/dashboard');
-}
+  await adminDb.doc(`users/${uid}`).set(
+    {
+      email,
+      age,
+      userType: 'user',
+      createdAt: FieldValue.serverTimestamp(),
+      upd
