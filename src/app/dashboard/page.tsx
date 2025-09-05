@@ -1,4 +1,15 @@
 // app/dashboard/page.tsx (Server Component)
+
+import { redirect } from 'next/navigation';
+import { getSession } from '@/server/session';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+export default async function DashboardPage() {
+  const session = await getSession();
+  if (!session?.uid) redirect('/?mode=login');
+  
 import { format } from 'date-fns';
 import {
   getDashboardState,
