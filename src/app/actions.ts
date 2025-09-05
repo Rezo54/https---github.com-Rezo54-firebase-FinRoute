@@ -172,7 +172,9 @@ type ProfileState = { message: string; errors?: z.ZodError<any>['formErrors'] | 
 /* --------------------------- session helpers (ok) --------------------------- */
 
 export async function startSession(uid: string) {
+  console.log('[startSession] begin', { uid });
   await createSession(uid);
+  console.log('[startSession] end', { uid });
   return { ok: true };
 }
 
@@ -590,28 +592,6 @@ export async function createUserDoc(uid: string, email: string, age: number) {
   return { ok: true };
 }
 
-/* --------------------------- server-side-breadcrumbs --------------------------- */
-export async function startSession(uid: string) {
-  console.log('[startSession] begin', { uid });
-  await createSession(uid);
-  console.log('[startSession] end', { uid });
-  return { ok: true };
-}
 
-export async function createUserDoc(uid: string, email: string, age: number) {
-  console.log('[createUserDoc] begin', { uid });
-  const [{ adminDb }, { FieldValue }] = await Promise.all([
-    import('@/server/firebase-admin'),
-    import('firebase-admin/firestore'),
-  ]);
-  await adminDb.doc(`users/${uid}`).set(
-    {
-      email, age, userType: 'user',
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true },
-  );
-  console.log('[createUserDoc] end', { uid });
-  return { ok: true };
-}
+
+
