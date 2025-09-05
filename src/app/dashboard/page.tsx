@@ -1,4 +1,11 @@
 // app/dashboard/page.tsx (Server Component)
+
+import { redirect } from 'next/navigation';
+import { getSession } from '@/server/session';
+
+export const dynamic = 'force-dynamic'; // ensure SSR on each request
+export const revalidate = 0;            // no static cache
+
 import { format } from 'date-fns';
 import {
   getDashboardState,
@@ -40,7 +47,6 @@ async function deleteGoalProxy(formData: FormData) {
   await deleteGoalAction(formData);
 }
 
-
 function currencySymbol(code: string) {
   const map: Record<string, string> = {
     ZAR: 'R',
@@ -78,6 +84,10 @@ function AchievementIcon({ name }: { name: string }) {
 }
 
 export default async function DashboardPage() {
+  // 🔐 Gate on the server so first navigation reads the cookie
+  const session = await getSession();
+  if (!session?.uid) redirect('/?mode=login');
+
   const dashboard: DashboardState = await getDashboardState();
 
   const sym = currencySymbol(dashboard.currency);
@@ -153,7 +163,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Reminders</CardTitle>
-            <CardDescription>Create a monthly or one-off reminder</CardDescription>
+          <CardDescription>Create a monthly or one-off reminder</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <form action={createReminderProxy} className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -224,7 +234,7 @@ export default async function DashboardPage() {
                           {format(new Date(r.nextRunAt), 'PPP p')}
                         </div>
                       </div>
-                      
+
                       <form action={deleteReminderProxy}>
                         <input type="hidden" name="id" value={r.id} />
                         <Button type="submit" variant="outline">
@@ -349,7 +359,7 @@ export default async function DashboardPage() {
                       {/* DELETE: include planId too */}
                       <form action={deleteGoalProxy}>
                         <input type="hidden" name="goalName" value={g.name} />
-                        <input type="hidden" name="planId" value={g.planId} />  {/* <-- add this */}
+                        <input type="hidden" name="planId" value={g.planId} />
                         <Button type="submit" variant="outline">Delete</Button>
                       </form>
                     </div>
