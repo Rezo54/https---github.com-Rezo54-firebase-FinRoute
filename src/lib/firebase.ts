@@ -2,23 +2,38 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-// (optional) if you need storage later:
-// import { getStorage } from 'firebase/storage';
+
+function must(name: string, v: string | undefined) {
+  if (!v) throw new Error(`Missing required env: ${name}`);
+  return v;
+}
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET, // "<project>.appspot.com"
-  // Support both names to avoid breakage
+  apiKey: must('NEXT_PUBLIC_FIREBASE_API_KEY', process.env.NEXT_PUBLIC_FIREBASE_API_KEY),
+  authDomain: must('NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN', process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN),
+  projectId: must('NEXT_PUBLIC_FIREBASE_PROJECT_ID', process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID),
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET, // optional
   messagingSenderId:
     process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ??
-    process.env.NEXT_PUBLIC_FIREBASE_SENDER_ID!,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
+    must('NEXT_PUBLIC_FIREBASE_SENDER_ID (or *_MESSAGING_SENDER_ID)', process.env.NEXT_PUBLIC_FIREBASE_SENDER_ID),
+  appId: must('NEXT_PUBLIC_FIREBASE_APP_ID', process.env.NEXT_PUBLIC_FIREBASE_APP_ID),
 };
+
+if (typeof window !== 'undefined' && !(window as any).__FIREBASE_CFG_LOGGED__) {
+  (window as any).__FIREBASE_CFG_LOGGED__ = true;
+  // Safe to log (these are public by design)
+  // Helps confirm Netlify injected them at runtime
+  // Remove after debugging.
+  // eslint-disable-next-line no-console
+  console.log('[firebase] cfg', {
+    apiKey: firebaseConfig.apiKey?.slice(0, 6) + '…',
+    authDomain: firebaseConfig.authDomain,
+    projectId: firebaseConfig.projectId,
+    appId: firebaseConfig.appId?.slice(0, 6) + '…',
+  });
+}
 
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-// export const storage = getStorage(app); // if you need it
 export { app };
