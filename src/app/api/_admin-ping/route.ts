@@ -1,15 +1,17 @@
+// src/app/api/admin-ping/route.ts
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/server/firebase-admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    // simple read of a meta doc; ok if it doesn't exist
+    const { adminDb } = await import('@/server/firebase-admin'); // our Admin init
     const doc = await adminDb.doc('meta/_ping').get();
-    return NextResponse.json({ ok: true, exists: doc.exists });
+    return NextResponse.json({ ok: true, exists: doc.exists ?? false });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || String(e) }, { status: 500 });
+    // Keep it 200 so you always see JSON, and log to functions output
+    console.error('[admin-ping] error', e);
+    return NextResponse.json({ ok: false, error: e?.message ?? String(e) });
   }
 }
